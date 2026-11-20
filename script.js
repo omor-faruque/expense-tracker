@@ -172,23 +172,26 @@ function render(){
 function openSheet(id){
  if(!S.cats.length){toast('Add a category first');tab='cat';render();return}
  const e=id?S.exp.find(x=>x.id===id):null;
+ const transport=S.cats.find(c=>/^transport(?:ation)?$/i.test(c.name));
  editing=e?e.id:null;
  selCat=e?e.cat:selCat&&S.cats.some(c=>c.id===selCat)?selCat:S.cats[0].id;
  $('sheet').innerHTML=`<div class="shtop"><h3 id="shh">${e?'Edit expense':'New expense'}</h3><button class="del" data-a="close" aria-label="Close">${ic('x')}</button></div>
  <label class="amtw"><span>${esc(sym())}</span><input id="ea" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" aria-label="Amount" value="${e?e.amt:''}"></label>
  <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}">${catIc(c)}${esc(c.name)}</button>`).join('')}</div>
+ ${!e&&transport?`<button class="quick-add" data-a="qa" data-id="${esc(transport.id)}">${catIc(transport)}Add ${esc(transport.name)} · ${money(6.6)}</button>`:''}
  <input id="en" placeholder="Note (optional)" maxlength="40" aria-label="Note" value="${e?esc(e.note):''}" style="margin-bottom:10px"><input id="ed" type="date" aria-label="Date" value="${e?e.date:mk===today().slice(0,7)?today():mk+'-01'}" style="margin-bottom:14px">
  <button class="btn" data-a="se">${e?'Save changes':'Save expense'}</button>${e?`<button class="btn ghost" data-a="dx" data-id="${esc(e.id)}">Delete expense</button>`:''}`;
  $('ov').classList.add('open');
- const on=$('chips').querySelector('.on');if(on)on.scrollIntoView({inline:'center',block:'nearest'});
+ const on=$('chips').querySelector('.on');if(on)on.scrollIntoView({block:'nearest'});
  setTimeout(()=>$('ea').focus(),350);
 }
 const close=()=>{$('ov').classList.remove('open');editing=null};
 
-function saveExp(){
+function saveExp(quick){
  const amt=parseFloat($('ea').value),date=DATE_RE.test($('ed').value)?$('ed').value:today();
- if(!(amt>0)){toast('Enter an amount');$('ea').focus();return}
- const data={cat:selCat,amt:Math.round(amt*100)/100,note:$('en').value.trim(),date};
+ const amount=quick?6.6:amt;
+ if(!(amount>0)){toast('Enter an amount');$('ea').focus();return}
+ const data={cat:quick||selCat,amt:Math.round(amount*100)/100,note:quick?'':$('en').value.trim(),date};
  const e=editing&&S.exp.find(x=>x.id===editing);
  if(e)Object.assign(e,data);else S.exp.push({id:uid(),...data});
  save();buzz();close();mk=date.slice(0,7);render();toast(e?'Changes saved':'Expense saved');
@@ -250,6 +253,7 @@ document.addEventListener('click',ev=>{
  else if(a==='ee')openSheet(id);
  else if(a==='close')close();
  else if(a==='sc'){selCat=id;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===b))}
+ else if(a==='qa')saveExp(id);
  else if(a==='se')saveExp();
  else if(a==='dx')delExp(id);
  else if(a==='dc')delCat(id);
