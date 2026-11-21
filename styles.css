@@ -164,4 +164,3 @@ input:focus{outline:0;border-color:var(--ac)}
 @media(max-width:380px){.stat b{font-size:.8rem}.tabs button{padding:11px 13px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important}}
 .ctr span{max-width:140px;margin:0 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
