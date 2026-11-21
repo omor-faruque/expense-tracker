@@ -7,6 +7,21 @@ bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 016 0v2"/>',
 food:'<path d="M7 3v8a2 2 0 002 2v8M11 3v8a2 2 0 01-2 2M7 3v4M18 21V3c-2 1-3 4-3 8h3"/>',
 car:'<path d="M4 16V12l2-5h12l2 5v4zM4 16v3M20 16v3"/><circle cx="8" cy="14" r=".6"/><circle cx="16" cy="14" r=".6"/>',
 subway:'<rect x="5" y="3" width="14" height="16" rx="4"/><path d="M5 13h14M8 7h.01M16 7h.01M8 22l3-3m5 3-3-3"/>',
+bus:'<rect x="3" y="4" width="18" height="15" rx="3"/><path d="M3 11h18M7 15h.01M17 15h.01M7 19l-2 2m12-2 2 2"/>',
+bike:'<circle cx="6" cy="17" r="3"/><circle cx="18" cy="17" r="3"/><path d="M6 17l4-8 4 8H6m4-8h4l4 8m-7-11h3"/>',
+coffee:'<path d="M5 8h12v8a4 4 0 01-4 4H9a4 4 0 01-4-4zM17 10h2a2 2 0 010 4h-2M9 4v2m4-2v2"/>',
+shirt:'<path d="M8 4l4 2 4-2 5 4-3 4-2-2v11H8V10l-2 2-3-4z"/>',
+music:'<path d="M9 18V5l12-2v13M9 8l12-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="18" cy="16" rx="3" ry="2"/>',
+camera:'<path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="14" r="4"/>',
+briefcase:'<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V4h8v3M3 12h18M10 12v2h4v-2"/>',
+leaf:'<path d="M20 4c-9 0-15 4-15 11a5 5 0 005 5c7 0 11-7 10-16zM5 20l8-8"/>',
+wrench:'<path d="M14 6a5 5 0 006 6l-9 9a2 2 0 01-3-3l9-9a5 5 0 01-6-6l3 3 3-1 1-3z"/>',
+baby:'<circle cx="12" cy="13" r="8"/><path d="M9 12h.01M15 12h.01M9 16c2 2 4 2 6 0M12 5V2m-3 1h6"/>',
+dumbbell:'<path d="M3 9v6m4-9v12m10-12v12m4-9v6M7 12h10"/>',
+phone:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>',
+laptop:'<rect x="4" y="4" width="16" height="12" rx="2"/><path d="M2 20h20l-2-4H4z"/>',
+graduation:'<path d="M2 10l10-6 10 6-10 6zM6 13v5c4 3 8 3 12 0v-5m4-3v6"/>',
+wallet:'<rect x="3" y="6" width="18" height="15" rx="2"/><path d="M3 9V5a2 2 0 012-2h13M15 13h6v4h-6a2 2 0 010-4z"/>',
 heart:'<path d="M12 20s-8-4.800-8-10.500A4.500 4.500 0 0112 7a4.500 4.500 0 018 2.500C20 15.200 12 20 12 20z"/>',
 film:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
 gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-2-4-6-3-5 0 .5 1.500 3 1 5 0zM12 8c2-4 6-3 5 0-.5 1.500-3 1-5 0z"/>',
@@ -15,6 +30,7 @@ plane:'<path d="M21 3L10 14M21 3l-7 18-4-7-7-4z"/>',
 paw:'<circle cx="7" cy="10" r="1.800"/><circle cx="17" cy="10" r="1.800"/><circle cx="10.500" cy="6" r="1.800"/><circle cx="13.500" cy="6" r="1.800"/><path d="M12 12c-3 0-5 3-4 5.500 1 2 3 1.500 4 1.500s3 .5 4-1.500c1-2.500-1-5.500-4-5.500z"/>',
 tag:'<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.500" cy="8.500" r="1"/>',
 trash:'<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+edit:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L8 18l-4 1 1-4z"/>',
 plus:'<path d="M12 5v14M5 12h14"/>',
 chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
 list:'<path d="M8 6h13M8 12h13M8 18h13M3.500 6h.01M3.500 12h.01M3.500 18h.01"/>',
@@ -29,23 +45,24 @@ csv:'<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 13h6M9 17h6"/>',
 save:'<path d="M12 4v12M6 10l6 6 6-6M4 20h16"/>',
 load:'<path d="M12 16V4M6 10l6-6 6 6M4 20h16"/>'};
 const ic=n=>`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.tag}</svg>`;
-const PICK=['cart','home','bolt','wifi','fuel','bag','food','car','subway','heart','film','gift','book','plane','paw','tag'];
-const COL=['#059669','#312E81','#B45309','#1E9BFF','#0284C7','#F0529C','#E8503A','#0F766E','#EF4B6C','#A855F7','#64748B','#84CC16','#DC2626'];
+const PICK=['cart','home','bolt','wifi','fuel','bag','food','car','subway','bus','bike','coffee','shirt','music','camera','briefcase','leaf','wrench','baby','dumbbell','phone','laptop','graduation','wallet','heart','film','gift','book','plane','paw','tag'];
+const COL=['#059669','#312E81','#B45309','#1E9BFF','#0284C7','#F0529C','#E8503A','#0F766E','#EF4B6C','#A855F7','#64748B','#84CC16','#DC2626','#2563EB','#0E7490','#7C3AED','#C026D3','#EA580C','#65A30D','#DB2777','#334155','#92400E','#CA8A04'];
 const LEGACY_COLORS=new Map([['Groceries',['#2FBF71',COL[0]]],['Rent',['#6C63FF',COL[1]]],['Utilities',['#F5B700',COL[2]]],['Gas',['#FF7A45',COL[4]]],['Transport',['#14B8A6',COL[7]]]]);
 const DEF=[['Groceries','cart',0],['Rent','home',1],['Utilities','bolt',2],['Phone & Internet','wifi',3],['Gas','fuel',4],['Shopping','bag',5],['Dining Out','food',6],['Transport','car',7],['TTC','subway',12],['Health','heart',8],['Fun','film',9],['Miscellaneous','tag',10]];
 const CUR=['USD','EUR','GBP','CAD','AUD','INR','BDT','JPY','CNY','CHF','MXN','BRL'];
 const KEY='pocketbook.v1';
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
 
-const fresh=()=>({cats:DEF.map((d,i)=>({id:'c'+i,name:d[0],icon:d[1],color:COL[d[2]]})),exp:[],currency:'USD'});
+const fresh=()=>({cats:DEF.map((d,i)=>({id:'c'+i,name:d[0],icon:d[1],color:COL[d[2]]})),exp:[],currency:'CAD',categoryDefaultsAdded:true});
 // Validates stored/imported data; colors and ids end up in HTML attributes, so they must be sanitized.
 function normalize(d){
  if(!d||!Array.isArray(d.cats)||!Array.isArray(d.exp))return null;
+ const addDefaultCategories=d.categoryDefaultsAdded!==true;
  const cats=d.cats.filter(c=>c&&c.id!=null&&c.name).map(c=>{
-  const name=String(c.name).slice(0,24),isTtc=name.toLowerCase()==='ttc';
-  return{id:String(c.id),name,icon:isTtc?'subway':PICK.includes(c.icon)?c.icon:'tag',color:isTtc?COL[12]:/^#[0-9a-f]{6}$/i.test(c.color)?c.color:COL[10]};
+  const name=String(c.name).slice(0,24),migrateTtc=addDefaultCategories&&name.toLowerCase()==='ttc'&&c.icon==='car'&&c.color===COL[7];
+  return{id:String(c.id),name,icon:migrateTtc?'subway':PICK.includes(c.icon)?c.icon:'tag',color:migrateTtc?COL[12]:/^#[0-9a-f]{6}$/i.test(c.color)?c.color:COL[10]};
  });
- [['TTC','subway',COL[12]],['Miscellaneous','tag',COL[10]]].forEach(([name,icon,color],i)=>{
+ if(addDefaultCategories)[['TTC','subway',COL[12]],['Miscellaneous','tag',COL[10]]].forEach(([name,icon,color],i)=>{
   if(!cats.some(c=>c.name.toLowerCase()===name.toLowerCase())){
    let id='c'+(DEF.length+i);
    while(cats.some(c=>c.id===id))id+='x';
@@ -56,7 +73,8 @@ function normalize(d){
   cats,
   exp:d.exp.filter(e=>e&&e.id!=null&&DATE_RE.test(e.date)&&isFinite(e.amt)&&+e.amt>0).map(e=>({id:String(e.id),cat:String(e.cat),amt:Math.round(+e.amt*100)/100,note:String(e.note||'').slice(0,40),date:e.date})),
   ...('budget' in d?{budget:Math.max(0,+d.budget||0)}:{}),
-  currency:CUR.includes(d.currency)?d.currency:'USD'};
+  currency:CUR.includes(d.currency)?d.currency:'CAD',
+  categoryDefaultsAdded:true};
 }
 let S;
 try{S=normalize(JSON.parse(localStorage.getItem(KEY)))}catch(e){S=null}
@@ -77,9 +95,15 @@ const today=()=>iso(new Date());
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const buzz=()=>navigator.vibrate&&navigator.vibrate(8);
 
-let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,fcat=null,q='',undoFn=null,recentFilter=null;
+let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,editingCat=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,fcat=null,q='',undoFn=null,recentFilter=null;
 const categoryColor=c=>{const legacy=LEGACY_COLORS.get(c.name);return legacy&&c.color.toUpperCase()===legacy[0]?legacy[1]:c.color};
 const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8'};return {...c,color:categoryColor(c)}};
+const iconAvailable=icon=>!S.cats.some(c=>c.id!==editingCat&&c.icon===icon);
+const colorAvailable=color=>!S.cats.some(c=>c.id!==editingCat&&categoryColor(c).toUpperCase()===color.toUpperCase());
+function ensureNewCategoryChoices(){
+ if(!iconAvailable(newIcon))newIcon=PICK.find(iconAvailable)||null;
+ if(!colorAvailable(newCol))newCol=COL.find(colorAvailable)||null;
+}
 const monthExp=k=>S.exp.filter(e=>e.date.slice(0,7)===k);
 const sum=a=>a.reduce((t,e)=>t+e.amt,0);
 const mlabel=k=>new Date(k+'-15T12:00').toLocaleDateString('en-US',{month:'long',year:'numeric'});
@@ -199,12 +223,15 @@ function expenses(){
 }
 
 function manage(){
+ const categoryToEdit=S.cats.find(c=>c.id===editingCat);
+ if(editingCat&&!categoryToEdit)editingCat=null;
+ ensureNewCategoryChoices();
  const spent={};monthExp(today().slice(0,7)).forEach(e=>spent[e.cat]=(spent[e.cat]||0)+e.amt);
- return`<div class="card tv"><h2>Your categories · this month</h2>${S.cats.length?`<div class="grid">${S.cats.map((c,i)=>`<div class="cc li" role="button" tabindex="0" data-a="fc" data-id="${esc(c.id)}" style="animation-delay:${i*30}ms">${catIc(c)}<span>${esc(c.name)}<small>${money(spent[c.id]||0)}</small></span><button class="del" data-a="dc" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">${ic('trash')}</button></div>`).join('')}</div>`:empty('No categories yet.','grid')}</div>
- <div class="card tv"><h2>Add a category</h2><input id="cn" placeholder="Name, e.g. Pets" maxlength="24" aria-label="Category name">
- <div class="pick" id="pi">${PICK.map(p=>`<button data-a="pi" data-v="${p}" class="${p===newIcon?'on':''}" aria-label="${p} icon">${ic(p)}</button>`).join('')}</div>
- <div class="pick sw" id="pc">${COL.map(c=>`<button data-a="pcol" data-v="${c}" style="background:${c}" class="${c===newCol?'on':''}" aria-label="Color ${c}"></button>`).join('')}</div>
- <button class="btn" data-a="ac">Add category</button></div>
+ return`<div class="card tv"><h2>Your categories · this month</h2>${S.cats.length?`<div class="grid">${S.cats.map((c,i)=>`<div class="cc li" role="button" tabindex="0" data-a="fc" data-id="${esc(c.id)}" style="animation-delay:${i*30}ms">${catIc(c)}<span>${esc(c.name)}<small>${money(spent[c.id]||0)}</small></span><button class="del edit-category" data-a="ec" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">${ic('edit')}</button><button class="del" data-a="dc" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">${ic('trash')}</button></div>`).join('')}</div>`:empty('No categories yet.','grid')}</div>
+ <div class="card tv"><h2>${categoryToEdit?'Edit category':'Add a category'}</h2><input id="cn" placeholder="Name, e.g. Pets" maxlength="24" aria-label="Category name" value="${categoryToEdit?esc(categoryToEdit.name):''}">
+ <div class="pick" id="pi">${PICK.map(p=>`<button data-a="pi" data-v="${p}" class="${p===newIcon?'on':''}" aria-label="${p} icon" ${iconAvailable(p)?'':'disabled'}>${ic(p)}</button>`).join('')}</div>
+ <div class="pick sw" id="pc">${COL.map(c=>`<button data-a="pcol" data-v="${c}" style="background:${c}" class="${c===newCol?'on':''}" aria-label="Color ${c}" ${colorAvailable(c)?'':'disabled'}></button>`).join('')}</div>
+ <button class="btn" data-a="ac" ${newIcon&&newCol?'':'disabled'}>${categoryToEdit?'Save category':'Add category'}</button>${categoryToEdit?'<button class="btn ghost" data-a="cancel-edit-cat">Cancel</button>':''}</div>
  <div class="card tv"><h2>Preferences</h2>
  <label class="set"><span>Currency</span><select id="cur">${CUR.map(c=>`<option ${c===S.currency?'selected':''}>${c}</option>`).join('')}</select></label></div>
  <div class="card tv"><h2>Your data</h2><div class="acts">
@@ -355,13 +382,26 @@ function delCat(id){
  const n=S.exp.filter(e=>e.cat===id).length;
  if(n&&!confirm(`${S.cats[i].name} has ${n} expense${n>1?'s':''}. They'll show as “Other”. Delete anyway?`))return;
  const [item]=S.cats.splice(i,1);
+ if(editingCat===id)editingCat=null;
  save();buzz();render();
  toast(item.name+' deleted',()=>S.cats.splice(i,0,item));
 }
-function addCat(){
+function editCat(id){
+ const category=S.cats.find(c=>c.id===id);if(!category)return;
+ editingCat=id;newIcon=category.icon;newCol=categoryColor(category);render();
+ $('cn').focus({preventScroll:true});
+ $('cn').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function saveCat(){
  const n=$('cn').value.trim();
  if(!n){toast('Give it a name');$('cn').focus();return}
- if(S.cats.some(c=>c.name.toLowerCase()===n.toLowerCase())){toast('That category already exists');return}
+ if(S.cats.some(c=>c.id!==editingCat&&c.name.toLowerCase()===n.toLowerCase())){toast('That category already exists');return}
+ if(!newIcon||!newCol||!iconAvailable(newIcon)||!colorAvailable(newCol)){toast('Choose an unused icon and color');return}
+ const category=editingCat&&S.cats.find(c=>c.id===editingCat);
+ if(category){
+  Object.assign(category,{name:n,icon:newIcon,color:newCol});editingCat=null;
+  save();buzz();render();toast(n+' updated');return;
+ }
  S.cats.push({id:'c'+uid(),name:n,icon:newIcon,color:newCol});save();buzz();render();toast(n+' added');
 }
 function download(name,text,type){
@@ -426,6 +466,7 @@ document.addEventListener('click',ev=>{
  }
  else if(a==='all-recent'){recentFilter=null;fcat=null;q='';tab='ex';render();scrollTo({top:0})}
  else if(a==='fc'){fcat=id;q='';tab='ex';render();scrollTo({top:0})}
+ else if(a==='ec')editCat(id);
  else if(a==='cf'){fcat=null;render()}
  else if(a==='ee')openSheet(id);
  else if(a==='close')close();
@@ -443,9 +484,10 @@ document.addEventListener('click',ev=>{
  else if(a==='se')saveExp();
  else if(a==='dx')delExp(id);
  else if(a==='dc')delCat(id);
- else if(a==='pi'){newIcon=v;document.querySelectorAll('#pi button').forEach(x=>x.classList.toggle('on',x===b))}
- else if(a==='pcol'){newCol=v;document.querySelectorAll('#pc button').forEach(x=>x.classList.toggle('on',x===b))}
- else if(a==='ac')addCat();
+ else if(a==='pi'&&iconAvailable(v)){newIcon=v;document.querySelectorAll('#pi button').forEach(x=>x.classList.toggle('on',x===b))}
+ else if(a==='pcol'&&colorAvailable(v)){newCol=v;document.querySelectorAll('#pc button').forEach(x=>x.classList.toggle('on',x===b))}
+ else if(a==='ac')saveCat();
+ else if(a==='cancel-edit-cat'){editingCat=null;render()}
  else if(a==='undo'&&undoFn){undoFn();undoFn=null;save();render();toast('Restored')}
  else if(a==='csv')exportCsv();
  else if(a==='bk'){download(`pocketbook-backup-${today()}.json`,JSON.stringify(S,null,1),'application/json');toast('Backup saved')}
@@ -466,7 +508,7 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='Escape'){close();$('fab').focus();return}
   if(ev.key==='Enter'&&t.tagName==='INPUT'){ev.preventDefault();if(expenseStep<3)showExpenseStep(expenseStep+1);else saveExp();return}
  }
- if(ev.key==='Enter'&&t.id==='cn'){addCat();return}
+ if(ev.key==='Enter'&&t.id==='cn'){saveCat();return}
  if((ev.key==='Enter'||ev.key===' ')&&t.matches('[role=button][data-a]')){ev.preventDefault();t.dispatchEvent(new MouseEvent('click',{bubbles:true}))}
 });
 let sx=0,sy=0;
