@@ -6,6 +6,7 @@ fuel:'<path d="M4 21V5a2 2 0 012-2h6a2 2 0 012 2v16M3 21h12M14 9h2.5a1.5 1.5 0 0
 bag:'<path d="M5 8h14l-1 12H6zM9 8V6a3 3 0 016 0v2"/>',
 food:'<path d="M7 3v8a2 2 0 002 2v8M11 3v8a2 2 0 01-2 2M7 3v4M18 21V3c-2 1-3 4-3 8h3"/>',
 car:'<path d="M4 16V12l2-5h12l2 5v4zM4 16v3M20 16v3"/><circle cx="8" cy="14" r=".6"/><circle cx="16" cy="14" r=".6"/>',
+subway:'<rect x="5" y="3" width="14" height="16" rx="4"/><path d="M5 13h14M8 7h.01M16 7h.01M8 22l3-3m5 3-3-3"/>',
 heart:'<path d="M12 20s-8-4.800-8-10.500A4.500 4.500 0 0112 7a4.500 4.500 0 018 2.500C20 15.200 12 20 12 20z"/>',
 film:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>',
 gift:'<rect x="3" y="8" width="18" height="4" rx="1"/><path d="M5 12v8h14v-8M12 8v12M12 8c-2-4-6-3-5 0 .5 1.500 3 1 5 0zM12 8c2-4 6-3 5 0-.5 1.500-3 1-5 0z"/>',
@@ -19,6 +20,7 @@ chart:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
 list:'<path d="M8 6h13M8 12h13M8 18h13M3.500 6h.01M3.500 12h.01M3.500 18h.01"/>',
 grid:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
 left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',
+backspace:'<path d="M9 4H20a2 2 0 012 2v12a2 2 0 01-2 2H9l-7-8zM13 9l5 6M18 9l-5 6"/>',
 search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
 calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',
 x:'<path d="M6 6l12 12M18 6L6 18"/>',
@@ -27,10 +29,10 @@ csv:'<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 13h6M9 17h6"/>',
 save:'<path d="M12 4v12M6 10l6 6 6-6M4 20h16"/>',
 load:'<path d="M12 16V4M6 10l6-6 6 6M4 20h16"/>'};
 const ic=n=>`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.tag}</svg>`;
-const PICK=['cart','home','bolt','wifi','fuel','bag','food','car','heart','film','gift','book','plane','paw','tag'];
-const COL=['#059669','#312E81','#B45309','#1E9BFF','#0284C7','#F0529C','#E8503A','#0F766E','#EF4B6C','#A855F7','#64748B','#84CC16'];
+const PICK=['cart','home','bolt','wifi','fuel','bag','food','car','subway','heart','film','gift','book','plane','paw','tag'];
+const COL=['#059669','#312E81','#B45309','#1E9BFF','#0284C7','#F0529C','#E8503A','#0F766E','#EF4B6C','#A855F7','#64748B','#84CC16','#DC2626'];
 const LEGACY_COLORS=new Map([['Groceries',['#2FBF71',COL[0]]],['Rent',['#6C63FF',COL[1]]],['Utilities',['#F5B700',COL[2]]],['Gas',['#FF7A45',COL[4]]],['Transport',['#14B8A6',COL[7]]]]);
-const DEF=[['Groceries','cart',0],['Rent','home',1],['Utilities','bolt',2],['Phone & Internet','wifi',3],['Gas','fuel',4],['Shopping','bag',5],['Dining Out','food',6],['Transport','car',7],['Health','heart',8],['Fun','film',9]];
+const DEF=[['Groceries','cart',0],['Rent','home',1],['Utilities','bolt',2],['Phone & Internet','wifi',3],['Gas','fuel',4],['Shopping','bag',5],['Dining Out','food',6],['Transport','car',7],['TTC','subway',12],['Health','heart',8],['Fun','film',9],['Miscellaneous','tag',10]];
 const CUR=['USD','EUR','GBP','CAD','AUD','INR','BDT','JPY','CNY','CHF','MXN','BRL'];
 const KEY='pocketbook.v1';
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
@@ -39,8 +41,19 @@ const fresh=()=>({cats:DEF.map((d,i)=>({id:'c'+i,name:d[0],icon:d[1],color:COL[d
 // Validates stored/imported data; colors and ids end up in HTML attributes, so they must be sanitized.
 function normalize(d){
  if(!d||!Array.isArray(d.cats)||!Array.isArray(d.exp))return null;
+ const cats=d.cats.filter(c=>c&&c.id!=null&&c.name).map(c=>{
+  const name=String(c.name).slice(0,24),isTtc=name.toLowerCase()==='ttc';
+  return{id:String(c.id),name,icon:isTtc?'subway':PICK.includes(c.icon)?c.icon:'tag',color:isTtc?COL[12]:/^#[0-9a-f]{6}$/i.test(c.color)?c.color:COL[10]};
+ });
+ [['TTC','subway',COL[12]],['Miscellaneous','tag',COL[10]]].forEach(([name,icon,color],i)=>{
+  if(!cats.some(c=>c.name.toLowerCase()===name.toLowerCase())){
+   let id='c'+(DEF.length+i);
+   while(cats.some(c=>c.id===id))id+='x';
+   cats.push({id,name,icon,color});
+  }
+ });
  return{
-  cats:d.cats.filter(c=>c&&c.id!=null&&c.name).map(c=>({id:String(c.id),name:String(c.name).slice(0,24),icon:PICK.includes(c.icon)?c.icon:'tag',color:/^#[0-9a-f]{6}$/i.test(c.color)?c.color:COL[10]})),
+  cats,
   exp:d.exp.filter(e=>e&&e.id!=null&&DATE_RE.test(e.date)&&isFinite(e.amt)&&+e.amt>0).map(e=>({id:String(e.id),cat:String(e.cat),amt:Math.round(+e.amt*100)/100,note:String(e.note||'').slice(0,40),date:e.date})),
   ...('budget' in d?{budget:Math.max(0,+d.budget||0)}:{}),
   currency:CUR.includes(d.currency)?d.currency:'USD'};
@@ -64,7 +77,7 @@ const today=()=>iso(new Date());
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const buzz=()=>navigator.vibrate&&navigator.vibrate(8);
 
-let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,fcat=null,q='',undoFn=null,recentFilter=null;
+let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,fcat=null,q='',undoFn=null,recentFilter=null;
 const categoryColor=c=>{const legacy=LEGACY_COLORS.get(c.name);return legacy&&c.color.toUpperCase()===legacy[0]?legacy[1]:c.color};
 const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8'};return {...c,color:categoryColor(c)}};
 const monthExp=k=>S.exp.filter(e=>e.date.slice(0,7)===k);
@@ -225,19 +238,40 @@ function render(){
 function openSheet(id){
  if(!S.cats.length){toast('Add a category first');tab='cat';render();return}
  const e=id?S.exp.find(x=>x.id===id):null;
- const transport=S.cats.find(c=>/^transport(?:ation)?$/i.test(c.name));
  editing=e?e.id:null;
+ expenseStep=0;
+ const initialDate=e?e.date:mk===today().slice(0,7)?today():mk+'-01';
+ expenseCalendarMonth=initialDate.slice(0,7);
  selCat=e?e.cat:selCat&&S.cats.some(c=>c.id===selCat)?selCat:S.cats[0].id;
  $('sheet').innerHTML=`<div class="shtop"><h3 id="shh">${e?'Edit expense':'New expense'}</h3><button class="del" data-a="close" aria-label="Close">${ic('x')}</button></div>
- <label class="amtw"><span>${esc(sym())}</span><input id="ea" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" aria-label="Amount" value="${e?e.amt:''}"></label>
- <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}" aria-pressed="${c.id===selCat}">${catIc(c)}${esc(c.name)}</button>`).join('')}</div>
- ${!e&&transport?`<button class="quick-add" data-a="qa" data-id="${esc(transport.id)}">${ic('plus')}${catIc(transport)}Add ${esc(transport.name)} · ${money(6.6)}</button>`:''}
- <input id="en" placeholder="Note (optional)" maxlength="40" aria-label="Note" value="${e?esc(e.note):''}" style="margin-bottom:10px">
- <label class="date-field"><span id="date-label" aria-hidden="true"></span>${ic('calendar')}<input id="ed" type="date" aria-label="Date" value="${e?e.date:mk===today().slice(0,7)?today():mk+'-01'}"></label>
- <button class="btn" id="save-exp" data-a="se">${e?'Save changes':'Save expense'}</button>${e?`<button class="btn ghost" data-a="dx" data-id="${esc(e.id)}">Delete expense</button>`:''}`;
+ <div class="expense-step" data-step="0">
+  <label class="amtw"><span>${esc(sym())}</span><input id="ea" type="text" inputmode="decimal" placeholder="0.00" aria-label="Amount" value="${e?e.amt:''}" readonly><span class="amt-cursor" aria-hidden="true">|</span></label>
+  <div class="quick-amounts" aria-label="Quick add amount">${[5,10,20,50].map(n=>`<button type="button" data-a="quick-amount" data-amount="${n}">+$${n}</button>`).join('')}</div>
+  <div class="calc" aria-label="Amount calculator">
+   ${['1','2','3','4','5','6','7','8','9','.','0','back'].map(k=>k==='back'?`<button type="button" data-a="calc" data-key="back" aria-label="Delete digit">${ic('backspace')}</button>`:`<button type="button" data-a="calc" data-key="${k}">${k}</button>`).join('')}
+  </div>
+  <button class="btn" id="amount-next" data-a="expense-next" disabled>Next</button>
+ </div>
+ <div class="expense-step" data-step="1" hidden>
+  <button type="button" class="amount-context" data-a="expense-back"><strong id="amount-context-value">${esc(money(expenseAmount()))}</strong><span>· Edit</span></button>
+  <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}" aria-pressed="${c.id===selCat}">${catIc(c)}${esc(c.name)}</button>`).join('')}</div>
+  <div class="step-actions"><button class="btn ghost back-btn" data-a="expense-back">Back</button><button class="btn" data-a="expense-next">Next</button></div>
+ </div>
+ <div class="expense-step" data-step="2" hidden>
+  <div class="flow-context" id="date-context"></div>
+  <div class="calendar" id="expense-calendar"></div>
+  <input id="ed" type="hidden" value="${initialDate}">
+  <div class="step-actions"><button class="btn ghost back-btn" data-a="expense-back">Back</button><button class="btn" data-a="expense-next">Next</button></div>
+ </div>
+ <div class="expense-step" data-step="3" hidden>
+  <input id="en" placeholder="Note (optional)" maxlength="40" aria-label="Note" value="${e?esc(e.note):''}">
+  <button class="btn" id="save-exp" data-a="se" style="margin-top:10px">${e?'Save changes':'Save expense'}</button>
+  <div class="step-actions"><button class="btn ghost back-btn" data-a="expense-back">Back</button>${e?`<button class="btn ghost" data-a="dx" data-id="${esc(e.id)}">Delete expense</button>`:''}</div>
+ </div>`;
  $('ov').classList.add('open');
  updateExpenseForm();
- $('ea').focus({preventScroll:true});
+ renderExpenseCalendar();
+ showExpenseStep(0);
 }
 const close=()=>{$('ov').classList.remove('open');editing=null};
 
@@ -246,14 +280,63 @@ function selectExpenseCategory(id){
  document.querySelectorAll('#chips .chip').forEach(c=>{
   const selected=c.dataset.id===id;c.classList.toggle('on',selected);c.setAttribute('aria-pressed',String(selected));
  });
+ updateDateContext();
+}
+const expenseAmount=()=>Number.parseFloat($('ea')?.value||'')||0;
+function updateDateContext(){
+ const context=$('date-context');if(!context)return;
+ context.innerHTML=`<strong>${esc(money(expenseAmount()))}</strong><span>·</span><span>${esc(cat(selCat).name)}</span>`;
+}
+function showExpenseStep(step){
+ if(step>0&&expenseAmount()<=0){toast('Enter an amount greater than zero');return}
+ expenseStep=Math.max(0,Math.min(3,step));
+ document.querySelectorAll('.expense-step').forEach(el=>{el.hidden=Number(el.dataset.step)!==expenseStep});
+ const titles=['Enter amount','Select category','Select date','Add a note'];
+ $('shh').textContent=titles[expenseStep];
+}
+function renderExpenseCalendar(){
+ const [year,month]=expenseCalendarMonth.split('-').map(Number);
+ const firstDay=new Date(year,month-1,1).getDay();
+ const dayCount=new Date(year,month,0).getDate();
+ const selected=$('ed').value;
+ const weeks=Math.max(5,Math.ceil((firstDay+dayCount)/7));
+ const cells=Array.from({length:weeks*7},(_,i)=>{
+  const day=i-firstDay+1;
+  if(day<1||day>dayCount)return'<span class="calendar-empty"></span>';
+  const date=`${expenseCalendarMonth}-${String(day).padStart(2,'0')}`;
+  return`<button type="button" class="calendar-day${selected===date?' selected':''}${date===today()?' today':''}" data-a="cal-day" data-date="${date}" aria-label="${new Date(year,month-1,day).toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}" aria-pressed="${selected===date}">${day}</button>`;
+ }).join('');
+ $('expense-calendar').innerHTML=`<div class="calendar-head"><button type="button" data-a="cal-prev" aria-label="Previous month">${ic('left')}</button><strong>${new Date(year,month-1,1).toLocaleDateString('en-US',{month:'long',year:'numeric'})}</strong><button type="button" data-a="cal-next" aria-label="Next month">${ic('right')}</button></div><div class="calendar-grid calendar-weekdays" aria-hidden="true">${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<span>${d}</span>`).join('')}</div><div class="calendar-grid calendar-days weeks-${weeks}">${cells}</div>`;
+}
+function enterCalculatorKey(key){
+ const input=$('ea');if(!input)return;
+ let value=input.value;
+ if(key==='back'){input.value=value.slice(0,-1)}
+ else if(key==='.'&&!value.includes('.')){input.value=value?value+'.':'0.'}
+ else if(key!=='.'||value){
+  if(value.includes('.')){
+  if(value.split('.')[1].length>=2)return;
+  }
+  if(value==='0'&&key!=='0'&&key!=='.')value='';
+  input.value=(value||'')+key;
+ }
+ updateExpenseForm();
 }
 function updateExpenseForm(){
- const amount=$('ea').valueAsNumber,date=$('ed').value;
- $('save-exp').disabled=!Number.isFinite(amount)||Math.round(amount*100)<=0;
- $('date-label').textContent=DATE_RE.test(date)?`${date===today()?'Today, ':''}${new Date(date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:'Choose a date';
+ const amount=expenseAmount();
+ $('ea')?.closest('.amtw').classList.toggle('filled',amount>0);
+ if($('amount-context-value'))$('amount-context-value').textContent=money(amount);
+ updateDateContext();
+ if($('amount-next'))$('amount-next').disabled=!Number.isFinite(amount)||Math.round(amount*100)<=0;
+ if($('save-exp'))$('save-exp').disabled=!Number.isFinite(amount)||Math.round(amount*100)<=0;
+}
+function addQuickAmount(amount){
+ const current=Math.round(expenseAmount()*100);
+ $('ea').value=((current+amount*100)/100).toFixed(2);
+ updateExpenseForm();
 }
 function saveExp(){
- const amount=$('ea').valueAsNumber,date=$('ed').value;
+ const amount=expenseAmount(),date=$('ed').value;
  if(!Number.isFinite(amount)||Math.round(amount*100)<=0){toast('Enter an amount greater than zero');$('ea').focus();return}
  if(!DATE_RE.test(date)){toast('Choose a date');$('ed').focus();return}
  const data={cat:selCat,amt:Math.round(amount*100)/100,note:$('en').value.trim(),date};
@@ -304,11 +387,30 @@ function restore(){
  inp.click();
 }
 
+document.addEventListener('pointerdown',ev=>{
+ if(!ev.target.closest('[data-a="calc"][data-key="back"]'))return;
+ if(backspaceTimer)clearTimeout(backspaceTimer);
+ backspaceHoldTriggered=false;
+ backspaceTimer=setTimeout(()=>{
+  if(!$('ea'))return;
+  $('ea').value='';updateExpenseForm();backspaceHoldTriggered=true;backspaceTimer=null;
+ },550);
+});
+document.addEventListener('pointerup',()=>{
+ if(backspaceTimer){clearTimeout(backspaceTimer);backspaceTimer=null}
+});
+document.addEventListener('pointercancel',()=>{
+ if(backspaceTimer){clearTimeout(backspaceTimer);backspaceTimer=null}
+ backspaceHoldTriggered=false;
+});
+document.addEventListener('contextmenu',ev=>{
+ if(ev.target.closest('[data-a="calc"][data-key="back"]'))ev.preventDefault();
+});
 document.addEventListener('click',ev=>{
  if(ev.target===$('ov')){close();return}
- if(ev.target.id==='ed'&&typeof ev.target.showPicker==='function'){ev.target.showPicker();return}
  const b=ev.target.closest('[data-a]');if(!b)return;
  const a=b.dataset.a,id=b.dataset.id,v=b.dataset.v;
+ if(backspaceHoldTriggered&&!(a==='calc'&&b.dataset.key==='back'))backspaceHoldTriggered=false;
  if(a==='tab'){tab=v;fcat=null;q='';render();scrollTo({top:0})}
  else if(a==='add')openSheet();
  else if(a==='pm'){mk=shift(mk,-1);render()}
@@ -328,10 +430,16 @@ document.addEventListener('click',ev=>{
  else if(a==='ee')openSheet(id);
  else if(a==='close')close();
  else if(a==='sc')selectExpenseCategory(id);
- else if(a==='qa'){
-  selectExpenseCategory(id);$('ea').value='6.60';
-  updateExpenseForm();$('ea').focus({preventScroll:true});
+ else if(a==='calc'){
+  if(b.dataset.key==='back'&&backspaceHoldTriggered)backspaceHoldTriggered=false;
+  else enterCalculatorKey(b.dataset.key);
  }
+ else if(a==='quick-amount')addQuickAmount(Number(b.dataset.amount));
+ else if(a==='expense-next')showExpenseStep(expenseStep+1);
+ else if(a==='expense-back')showExpenseStep(expenseStep-1);
+ else if(a==='cal-prev'){expenseCalendarMonth=shift(expenseCalendarMonth,-1);renderExpenseCalendar()}
+ else if(a==='cal-next'){expenseCalendarMonth=shift(expenseCalendarMonth,1);renderExpenseCalendar()}
+ else if(a==='cal-day'){$('ed').value=b.dataset.date;updateExpenseForm();renderExpenseCalendar()}
  else if(a==='se')saveExp();
  else if(a==='dx')delExp(id);
  else if(a==='dc')delCat(id);
@@ -347,17 +455,16 @@ document.addEventListener('click',ev=>{
 document.addEventListener('change',ev=>{
  const t=ev.target;
  if(t.id==='cur'){S.currency=t.value;setFmt();save();render();toast('Currency: '+S.currency)}
- else if(t.id==='ed')updateExpenseForm();
 });
 document.addEventListener('input',ev=>{
  if(ev.target.id==='q'){q=ev.target.value;$('xl').innerHTML=exList()}
- else if(ev.target.id==='ea'||ev.target.id==='ed')updateExpenseForm();
+ else if(ev.target.id==='ea')updateExpenseForm();
 });
 document.addEventListener('keydown',ev=>{
  const t=ev.target;
  if($('ov').classList.contains('open')){
   if(ev.key==='Escape'){close();$('fab').focus();return}
-  if(ev.key==='Enter'&&t.tagName==='INPUT'){ev.preventDefault();saveExp();return}
+  if(ev.key==='Enter'&&t.tagName==='INPUT'){ev.preventDefault();if(expenseStep<3)showExpenseStep(expenseStep+1);else saveExp();return}
  }
  if(ev.key==='Enter'&&t.id==='cn'){addCat();return}
  if((ev.key==='Enter'||ev.key===' ')&&t.matches('[role=button][data-a]')){ev.preventDefault();t.dispatchEvent(new MouseEvent('click',{bubbles:true}))}
