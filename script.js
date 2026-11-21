@@ -20,6 +20,7 @@ list:'<path d="M8 6h13M8 12h13M8 18h13M3.500 6h.01M3.500 12h.01M3.500 18h.01"/>'
 grid:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
 left:'<path d="M15 5l-7 7 7 7"/>',right:'<path d="M9 5l7 7-7 7"/>',
 search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/>',
 x:'<path d="M6 6l12 12M18 6L6 18"/>',
 up:'<path d="M7 17L17 7M9 7h8v8"/>',down:'<path d="M7 7l10 10M17 9v8H9"/>',
 csv:'<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 13h6M9 17h6"/>',
@@ -27,7 +28,8 @@ save:'<path d="M12 4v12M6 10l6 6 6-6M4 20h16"/>',
 load:'<path d="M12 16V4M6 10l6-6 6 6M4 20h16"/>'};
 const ic=n=>`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.tag}</svg>`;
 const PICK=['cart','home','bolt','wifi','fuel','bag','food','car','heart','film','gift','book','plane','paw','tag'];
-const COL=['#2FBF71','#6C63FF','#F5B700','#1E9BFF','#FF7A45','#F0529C','#E8503A','#14B8A6','#EF4B6C','#A855F7','#64748B','#84CC16'];
+const COL=['#059669','#312E81','#B45309','#1E9BFF','#0284C7','#F0529C','#E8503A','#0F766E','#EF4B6C','#A855F7','#64748B','#84CC16'];
+const LEGACY_COLORS=new Map([['Groceries',['#2FBF71',COL[0]]],['Rent',['#6C63FF',COL[1]]],['Utilities',['#F5B700',COL[2]]],['Gas',['#FF7A45',COL[4]]],['Transport',['#14B8A6',COL[7]]]]);
 const DEF=[['Groceries','cart',0],['Rent','home',1],['Utilities','bolt',2],['Phone & Internet','wifi',3],['Gas','fuel',4],['Shopping','bag',5],['Dining Out','food',6],['Transport','car',7],['Health','heart',8],['Fun','film',9]];
 const CUR=['USD','EUR','GBP','CAD','AUD','INR','BDT','JPY','CNY','CHF','MXN','BRL'];
 const KEY='pocketbook.v1';
@@ -62,8 +64,9 @@ const today=()=>iso(new Date());
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const buzz=()=>navigator.vibrate&&navigator.vibrate(8);
 
-let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,fcat=null,q='',undoFn=null;
-const cat=id=>S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8'};
+let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,fcat=null,q='',undoFn=null,recentFilter=null;
+const categoryColor=c=>{const legacy=LEGACY_COLORS.get(c.name);return legacy&&c.color.toUpperCase()===legacy[0]?legacy[1]:c.color};
+const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8'};return {...c,color:categoryColor(c)}};
 const monthExp=k=>S.exp.filter(e=>e.date.slice(0,7)===k);
 const sum=a=>a.reduce((t,e)=>t+e.amt,0);
 const mlabel=k=>new Date(k+'-15T12:00').toLocaleDateString('en-US',{month:'long',year:'numeric'});
@@ -88,48 +91,76 @@ function count(el,to){
  (function f(t){const p=Math.min(1,(t-t0)/1000),e=1-Math.pow(1-p,3);el.innerHTML=heroMoney(to*e);if(p<1)requestAnimationFrame(f)})(t0);
 }
 function byCat(list){const m={};list.forEach(e=>m[e.cat]=(m[e.cat]||0)+e.amt);return Object.entries(m).map(([id,v])=>({id,v,c:cat(id)})).sort((a,b)=>b.v-a.v)}
+function categoryPercentages(categories){
+ const total=categories.reduce((n,x)=>n+x.v,0);
+ const shares=categories.map(x=>{const exact=total?x.v/total*100:0,pct=Math.floor(exact);return {...x,pct,remainder:exact-pct}});
+ const remaining=total?100-shares.reduce((n,x)=>n+x.pct,0):0;
+ [...shares].sort((a,b)=>b.remainder-a.remainder).slice(0,remaining).forEach(x=>x.pct++);
+ return shares;
+}
+const chartCategories=list=>categoryPercentages(byCat(list));
 const empty=(msg,icon)=>`<div class="empty"><div class="eic">${ic(icon)}</div>${msg}</div>`;
-const catIc=(c,cls='')=>`<div class="ic ${cls}" style="background:${c.color}">${ic(c.icon)}</div>`;
+const catIc=(c,cls='')=>`<div class="ic ${cls}" style="background:${categoryColor(c)}">${ic(c.icon)}</div>`;
+
+function recentContent(list,categories){
+ const colors=new Map(categories.map(x=>[x.id,x.c.color]));
+ const filtered=list.filter(e=>!recentFilter||recentFilter.ids.includes(e.cat))
+  .sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id)).slice(0,4);
+ const filter=recentFilter?`<button class="recent-filter" data-a="clear-recent" aria-label="Clear ${esc(recentFilter.label)} filter">${esc(recentFilter.label)} ${ic('x')}<span>Clear filter</span></button>`:'';
+ if(!filtered.length)return filter+empty(recentFilter?'No transactions in this category.':'No transactions yet this month.','list');
+ return filter+`<div class="recent-list">${filtered.map(e=>{
+  const c=cat(e.cat),date=new Date(e.date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  return `<button class="recent-row" data-a="ee" data-id="${esc(e.id)}">${catIc({...c,color:colors.get(e.cat)})}<span class="recent-details"><b>${esc(e.note||c.name)}</b><small>${esc(c.name)} · ${date}</small></span><span class="amt">${money(e.amt)}</span></button>`;
+ }).join('')}</div>`;
+}
+
+function updateRecent(){
+ const list=monthExp(mk);
+ $('recent-body').innerHTML=recentContent(list,chartCategories(list));
+}
 
 function overview(list,tot){
  const now=today(),cur=now.slice(0,7),[y,m]=mk.split('-').map(Number),dim=new Date(y,m,0).getDate();
  const elapsed=mk===cur?+now.slice(8):mk<cur?dim:0;
  const avg=elapsed?tot/elapsed:0;
  const prev=sum(monthExp(shift(mk,-1))),diff=prev?(tot-prev)/prev*100:null;
- let h=`<div class="card hero tv"><small>Spent in ${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'long'})}</small><div class="big" id="big">${heroMoney(0)}</div></div>`;
+ let h=`<div class="card hero tv"><small>Spent in ${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'long'})}</small><div class="big" id="big">${heroMoney(0)}</div>`;
  const trend=diff==null?'<b class="no-prior">No prior data</b>':`<b class="${diff>0?'up':'dn'}">${ic(diff>0?'up':'down')}${Math.abs(Math.round(diff))}%</b>`;
- h+=`<div class="stats tv"><div class="stat"><small>Daily average</small><b>${money(avg)}</b></div><div class="stat"><small>Expenses</small><b>${list.length}</b></div><div class="stat"><small>vs last month</small>${trend}</div></div>`;
- const bc=byCat(list);
- h+=`<div class="card tv"><h2>By category</h2>`;
+ h+=`<div class="stats"><div class="stat"><small>Daily average</small><b>${money(avg)}</b></div><div class="stat"><small>Expenses</small><b>${list.length}</b></div><div class="stat"><small>vs last month</small>${trend}</div></div></div>`;
+ const bc=chartCategories(list);
+ h+=`<div class="card tv"><h2>Spending by category</h2>`;
  if(!bc.length)h+=empty('No expenses yet this month.<br>Tap the + button to add one.','chart');
+ else if(!tot)h+=empty('No spending yet this month.','chart');
  else{
   const small=bc.filter(x=>x.v/tot<.05);
-  const slices=bc.filter(x=>x.v/tot>=.05);
-  if(small.length)slices.push({v:small.reduce((n,x)=>n+x.v,0),c:{name:'Other',color:'#94A3B8'},group:true});
+  const slices=small.length>1?bc.filter(x=>x.v/tot>=.05):[...bc];
+  if(small.length>1)slices.push({v:small.reduce((n,x)=>n+x.v,0),pct:small.reduce((n,x)=>n+x.pct,0),c:{name:'Other',color:'#64748B'},group:true});
   const R=88,C=2*Math.PI*R;let off=0,seg='';
-  slices.forEach(x=>{const share=x.v/tot*C,gap=slices.length>1?Math.min(3,share*.2):0,L=share-gap;seg+=`<circle class="slice" cx="115" cy="115" r="${R}" stroke="${x.c.color}" stroke-dasharray="0 ${C}" stroke-dashoffset="${-(off+gap/2)}" data-d="${L} ${C-L}" data-a="cs" ${x.group?'data-group="true"':`data-id="${esc(x.id)}"`} role="button" tabindex="0" aria-label="${esc(`${x.c.name}: ${money(x.v)}, ${Math.round(x.v/tot*100)}%`)}" aria-pressed="false"/>`;off+=share});
-  const chartLabel=bc.map(x=>`${x.c.name}: ${money(x.v)} (${Math.round(x.v/tot*100)}%)`).join(', ');
-  h+=`<div class="donutw"><svg viewBox="0 0 230 230" role="group" aria-label="${esc('Spending by category: '+chartLabel)}"><circle cx="115" cy="115" r="${R}" stroke="var(--sf2)"/>${seg}</svg><div class="ctr" id="chart-center" aria-live="polite"><span>Top category</span><b>${Math.round(bc[0].v/tot*100)}%</b><span>${esc(bc[0].c.name)}</span></div></div>
-  ${small.length?'<p class="legend-note">Small slices are grouped as Other; select a category below for details.</p>':''}
-  <div class="legend" aria-label="Categories">${bc.map(x=>`<button class="lg" data-a="cs" data-id="${esc(x.id)}" aria-pressed="false"><i style="background:${x.c.color}"></i><span class="lg-name">${esc(x.c.name)}</span><span class="lg-value">${Math.round(x.v/tot*100)}%</span></button>`).join('')}</div>`;
+  slices.forEach(x=>{const share=x.v/tot*C,gap=slices.length>1?Math.min(3,share*.2):0,L=share-gap;seg+=`<circle class="slice" cx="115" cy="115" r="${R}" stroke="${x.c.color}" stroke-dasharray="0 ${C}" stroke-dashoffset="${-(off+gap/2)}" data-d="${L} ${C-L}" data-a="cs" ${x.group?'data-group="true"':`data-id="${esc(x.id)}"`} role="button" tabindex="0" aria-label="${esc(`${x.c.name}: ${money(x.v)}, ${x.pct}%`)}" aria-pressed="false"/>`;off+=share});
+  const chartLabel=bc.map(x=>`${x.c.name}: ${money(x.v)} (${x.pct}%)`).join(', ');
+  h+=`<div class="donutw"><svg viewBox="0 0 230 230" role="group" aria-label="${esc('Spending by category: '+chartLabel)}"><circle cx="115" cy="115" r="${R}" stroke="var(--sf2)"/>${seg}</svg><div class="ctr" id="chart-center" aria-live="polite"><span>Top category</span><b>${bc[0].pct}%</b><span>${esc(bc[0].c.name)}</span></div></div>
+  <div class="legend" aria-label="Categories">${bc.map(x=>`<button class="lg" data-a="cs" data-id="${esc(x.id)}" aria-pressed="false">${catIc(x.c)}<span class="lg-main"><span class="lg-name">${esc(x.c.name)}</span><span class="lg-track"><i style="background:${x.c.color}" data-w="${x.v/tot*100}"></i></span></span><span class="lg-value"><span>${x.pct}%</span><strong>${money(x.v)}</strong></span></button>`).join('')}</div>`;
  }
  h+=`</div>`;
  const ms=[];for(let i=5;i>=0;i--)ms.push(shift(mk,-i));
  const vals=ms.map(k=>sum(monthExp(k))),mx=Math.max(...vals,1);
- h+=`<div class="card tv"><h2>Last 6 months</h2><div class="bars">${ms.map((k,i)=>`<button class="bar ${k===mk?'cur':''}" data-a="gm" data-v="${k}" aria-label="${mlabel(k)}: ${money(vals[i])}"><em>${vals[i]?fmtC.format(vals[i]):''}</em><i data-h="${Math.max(vals[i]/mx*72,vals[i]?4:2)}"></i>${new Date(k+'-15T12:00').toLocaleDateString('en-US',{month:'short'})}</button>`).join('')}</div></div>`;
- if(bc.length)h+=`<div class="card tv"><h2>Top categories</h2>${bc.slice(0,5).map(x=>`<div class="row tap" role="button" tabindex="0" data-a="fc" data-id="${esc(x.id)}">${catIc(x.c)}<div class="rb"><b>${esc(x.c.name)}</b><div class="pg"><i style="background:${x.c.color}" data-w="${x.v/bc[0].v*100}"></i></div></div><div class="amt">${money(x.v)}</div></div>`).join('')}</div>`;
+ h+=`<div class="card tv"><h2>Last 6 months</h2><div class="bars">${ms.map((k,i)=>{const height=vals[i]/mx*80;return `<button class="bar ${k===mk?'cur':''}" data-a="gm" data-v="${k}" aria-label="${mlabel(k)}: ${money(vals[i])}"><span class="bar-track"><em style="bottom:calc(${height}% + 4px)">${vals[i]?fmtC.format(vals[i]):''}</em><i data-h="${height}"></i></span><span>${new Date(k+'-15T12:00').toLocaleDateString('en-US',{month:'short'})}</span></button>`}).join('')}</div></div>`;
+ h+=`<div class="card tv"><div class="recent-head"><h2>Recent transactions</h2><button class="see-all" data-a="all-recent">See all</button></div><div id="recent-body" aria-live="polite">${recentContent(list,bc)}</div></div>`;
  return h;
 }
 
 function selectChartCategory(id,group){
- const bc=byCat(monthExp(mk)),tot=sum(monthExp(mk));
- const selected=group?{v:bc.filter(x=>x.v/tot<.05).reduce((n,x)=>n+x.v,0),c:{name:'Other'}}:bc.find(x=>x.id===id);
+ const bc=categoryPercentages(byCat(monthExp(mk))),tot=sum(monthExp(mk));
+ const small=bc.filter(x=>x.v/tot<.05);
+ const selected=group?{v:small.reduce((n,x)=>n+x.v,0),pct:small.reduce((n,x)=>n+x.pct,0),c:{name:'Other'}}:bc.find(x=>x.id===id);
  if(!selected)return;
- $('chart-center').innerHTML=`<span>${group?'Grouped categories':'Selected category'}</span><b>${Math.round(selected.v/tot*100)}%</b><span>${esc(selected.c.name)}</span><span>${money(selected.v)}</span>${group?'':`<button class="chart-link" data-a="fc" data-id="${esc(id)}">View expenses</button>`}`;
+ $('chart-center').innerHTML=`<span>${group?'Grouped categories':'Selected category'}</span><b>${selected.pct}%</b><span>${esc(selected.c.name)}</span><span>${money(selected.v)}</span>${group?'':`<button class="chart-link" data-a="fc" data-id="${esc(id)}">View expenses</button>`}`;
  document.querySelectorAll('[data-a="cs"]').forEach(el=>{
   const active=group?el.dataset.group==='true':el.dataset.id===id;
   el.setAttribute('aria-pressed',String(active));
  });
+ recentFilter={month:mk,ids:group?small.map(x=>x.id):[id],label:selected.c.name,group};
+ updateRecent();
 }
 
 function exList(){
@@ -171,6 +202,8 @@ function manage(){
 
 function render(){
  const a=$('app'),list=monthExp(mk),tot=sum(list);
+ if(recentFilter&&recentFilter.month!==mk)recentFilter=null;
+ const tabs=$('tabs');
  let h=tab==='cat'?`<header><h1>Manage</h1></header>`
   :`<header><h1>Pocketbook</h1><div class="hr"><div class="mon"><button data-a="pm" aria-label="Previous month">${ic('left')}</button><button class="ml" data-a="tm" title="Jump to this month" aria-label="${mlabel(mk)}">${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'short',year:'numeric'})}</button><button data-a="nm" aria-label="Next month" ${mk>=latestMonth()?'disabled':''}>${ic('right')}</button></div></div></header>`;
  h+=tab==='ov'?overview(list,tot):tab==='ex'?expenses():manage();
@@ -181,9 +214,12 @@ function render(){
   a.querySelectorAll('[data-h]').forEach(e=>e.style.height=e.dataset.h+'%');
   const b=$('big');if(b)count(b,tot);
  }));
- const T=[['ov','chart','Overview'],['ex','list','Expenses'],['cat','grid','Manage']];
- $('tabs').innerHTML=T.map(t=>`<button data-a="tab" data-v="${t[0]}" class="${tab===t[0]?'on':''}" aria-label="${t[2]}" ${tab===t[0]?'aria-current="page"':''}>${ic(t[1])}<span>${t[2]}</span></button>`).join('');
- $('fab').style.display=tab==='cat'?'none':'grid';
+ const T=[['ov','chart','Overview'],['ex','list','Expenses'],['add','plus','Add expense'],['cat','grid','Manage']];
+ tabs.innerHTML=T.map(t=>t[0]==='add'?`<button class="fab" id="fab" data-a="add" aria-label="${t[2]}">${ic(t[1])}</button>`:`<button data-a="tab" data-v="${t[0]}" class="${tab===t[0]?'on':''}" aria-label="${t[2]}" ${tab===t[0]?'aria-current="page"':''}>${ic(t[1])}<span>${t[2]}</span></button>`).join('');
+ if(tab==='ov'&&recentFilter){
+  if(tot&&(recentFilter.group?a.querySelector('[data-group]'):list.some(e=>e.cat===recentFilter.ids[0])))selectChartCategory(recentFilter.ids[0],recentFilter.group);
+  else{recentFilter=null;updateRecent()}
+ }
 }
 
 function openSheet(id){
@@ -194,21 +230,33 @@ function openSheet(id){
  selCat=e?e.cat:selCat&&S.cats.some(c=>c.id===selCat)?selCat:S.cats[0].id;
  $('sheet').innerHTML=`<div class="shtop"><h3 id="shh">${e?'Edit expense':'New expense'}</h3><button class="del" data-a="close" aria-label="Close">${ic('x')}</button></div>
  <label class="amtw"><span>${esc(sym())}</span><input id="ea" type="number" inputmode="decimal" placeholder="0.00" step="0.01" min="0" aria-label="Amount" value="${e?e.amt:''}"></label>
- <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}">${catIc(c)}${esc(c.name)}</button>`).join('')}</div>
- ${!e&&transport?`<button class="quick-add" data-a="qa" data-id="${esc(transport.id)}">${catIc(transport)}Add ${esc(transport.name)} · ${money(6.6)}</button>`:''}
- <input id="en" placeholder="Note (optional)" maxlength="40" aria-label="Note" value="${e?esc(e.note):''}" style="margin-bottom:10px"><input id="ed" type="date" aria-label="Date" value="${e?e.date:mk===today().slice(0,7)?today():mk+'-01'}" style="margin-bottom:14px">
- <button class="btn" data-a="se">${e?'Save changes':'Save expense'}</button>${e?`<button class="btn ghost" data-a="dx" data-id="${esc(e.id)}">Delete expense</button>`:''}`;
+ <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}" aria-pressed="${c.id===selCat}">${catIc(c)}${esc(c.name)}</button>`).join('')}</div>
+ ${!e&&transport?`<button class="quick-add" data-a="qa" data-id="${esc(transport.id)}">${ic('plus')}${catIc(transport)}Add ${esc(transport.name)} · ${money(6.6)}</button>`:''}
+ <input id="en" placeholder="Note (optional)" maxlength="40" aria-label="Note" value="${e?esc(e.note):''}" style="margin-bottom:10px">
+ <label class="date-field"><span id="date-label" aria-hidden="true"></span>${ic('calendar')}<input id="ed" type="date" aria-label="Date" value="${e?e.date:mk===today().slice(0,7)?today():mk+'-01'}"></label>
+ <button class="btn" id="save-exp" data-a="se">${e?'Save changes':'Save expense'}</button>${e?`<button class="btn ghost" data-a="dx" data-id="${esc(e.id)}">Delete expense</button>`:''}`;
  $('ov').classList.add('open');
- const on=$('chips').querySelector('.on');if(on)on.scrollIntoView({block:'nearest'});
- setTimeout(()=>$('ea').focus(),350);
+ updateExpenseForm();
+ $('ea').focus({preventScroll:true});
 }
 const close=()=>{$('ov').classList.remove('open');editing=null};
 
-function saveExp(quick){
- const amt=parseFloat($('ea').value),date=DATE_RE.test($('ed').value)?$('ed').value:today();
- const amount=quick?6.6:amt;
- if(!(amount>0)){toast('Enter an amount');$('ea').focus();return}
- const data={cat:quick||selCat,amt:Math.round(amount*100)/100,note:quick?'':$('en').value.trim(),date};
+function selectExpenseCategory(id){
+ selCat=id;
+ document.querySelectorAll('#chips .chip').forEach(c=>{
+  const selected=c.dataset.id===id;c.classList.toggle('on',selected);c.setAttribute('aria-pressed',String(selected));
+ });
+}
+function updateExpenseForm(){
+ const amount=$('ea').valueAsNumber,date=$('ed').value;
+ $('save-exp').disabled=!Number.isFinite(amount)||Math.round(amount*100)<=0;
+ $('date-label').textContent=DATE_RE.test(date)?`${date===today()?'Today, ':''}${new Date(date+'T12:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}`:'Choose a date';
+}
+function saveExp(){
+ const amount=$('ea').valueAsNumber,date=$('ed').value;
+ if(!Number.isFinite(amount)||Math.round(amount*100)<=0){toast('Enter an amount greater than zero');$('ea').focus();return}
+ if(!DATE_RE.test(date)){toast('Choose a date');$('ed').focus();return}
+ const data={cat:selCat,amt:Math.round(amount*100)/100,note:$('en').value.trim(),date};
  const e=editing&&S.exp.find(x=>x.id===editing);
  if(e)Object.assign(e,data);else S.exp.push({id:uid(),...data});
  save();buzz();close();mk=date.slice(0,7);render();toast(e?'Changes saved':'Expense saved');
@@ -258,20 +306,32 @@ function restore(){
 
 document.addEventListener('click',ev=>{
  if(ev.target===$('ov')){close();return}
+ if(ev.target.id==='ed'&&typeof ev.target.showPicker==='function'){ev.target.showPicker();return}
  const b=ev.target.closest('[data-a]');if(!b)return;
  const a=b.dataset.a,id=b.dataset.id,v=b.dataset.v;
  if(a==='tab'){tab=v;fcat=null;q='';render();scrollTo({top:0})}
+ else if(a==='add')openSheet();
  else if(a==='pm'){mk=shift(mk,-1);render()}
  else if(a==='nm'&&mk<latestMonth()){mk=shift(mk,1);render()}
  else if(a==='tm'){mk=today().slice(0,7);render()}
  else if(a==='gm'){mk=v;render()}
  else if(a==='cs')selectChartCategory(id,b.dataset.group==='true');
+ else if(a==='clear-recent'){
+  recentFilter=null;updateRecent();
+  document.querySelectorAll('[data-a="cs"]').forEach(el=>el.setAttribute('aria-pressed','false'));
+  const top=chartCategories(monthExp(mk))[0];
+  if(top)$('chart-center').innerHTML=`<span>Top category</span><b>${top.pct}%</b><span>${esc(top.c.name)}</span>`;
+ }
+ else if(a==='all-recent'){recentFilter=null;fcat=null;q='';tab='ex';render();scrollTo({top:0})}
  else if(a==='fc'){fcat=id;q='';tab='ex';render();scrollTo({top:0})}
  else if(a==='cf'){fcat=null;render()}
  else if(a==='ee')openSheet(id);
  else if(a==='close')close();
- else if(a==='sc'){selCat=id;document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===b))}
- else if(a==='qa')saveExp(id);
+ else if(a==='sc')selectExpenseCategory(id);
+ else if(a==='qa'){
+  selectExpenseCategory(id);$('ea').value='6.60';
+  updateExpenseForm();$('ea').focus({preventScroll:true});
+ }
  else if(a==='se')saveExp();
  else if(a==='dx')delExp(id);
  else if(a==='dc')delCat(id);
@@ -287,8 +347,12 @@ document.addEventListener('click',ev=>{
 document.addEventListener('change',ev=>{
  const t=ev.target;
  if(t.id==='cur'){S.currency=t.value;setFmt();save();render();toast('Currency: '+S.currency)}
+ else if(t.id==='ed')updateExpenseForm();
 });
-document.addEventListener('input',ev=>{if(ev.target.id==='q'){q=ev.target.value;$('xl').innerHTML=exList()}});
+document.addEventListener('input',ev=>{
+ if(ev.target.id==='q'){q=ev.target.value;$('xl').innerHTML=exList()}
+ else if(ev.target.id==='ea'||ev.target.id==='ed')updateExpenseForm();
+});
 document.addEventListener('keydown',ev=>{
  const t=ev.target;
  if($('ov').classList.contains('open')){
@@ -305,5 +369,4 @@ $('app').addEventListener('touchend',e=>{
  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
  if(Math.abs(dx)>70&&Math.abs(dy)<40&&(dx>0||mk<latestMonth())){mk=shift(mk,dx<0?1:-1);render()}
 },{passive:true});
-$('fab').addEventListener('click',()=>openSheet());
 render();
