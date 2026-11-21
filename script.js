@@ -664,3 +664,6 @@ $('app').addEventListener('touchend',e=>{
  if(Math.abs(dx)>70&&Math.abs(dy)<40&&(dx>0||mk<latestMonth())){mk=shift(mk,dx<0?1:-1);render()}
 },{passive:true});
 render();
+if('serviceWorker' in navigator){
+ navigator.serviceWorker.register('./service-worker.js').catch(error=>console.error('Service worker registration failed:',error));
+}
