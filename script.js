@@ -95,7 +95,7 @@ const today=()=>iso(new Date());
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const buzz=()=>navigator.vibrate&&navigator.vibrate(8);
 
-let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,editingCat=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,fcat=null,q='',undoFn=null,recentFilter=null;
+let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,editingCat=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,trendMode='month',trendAnchor=today(),trendCache=null,fcat=null,q='',undoFn=null,recentFilter=null;
 const categoryColor=c=>{const legacy=LEGACY_COLORS.get(c.name);return legacy&&c.color.toUpperCase()===legacy[0]?legacy[1]:c.color};
 const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8'};return {...c,color:categoryColor(c)}};
 const iconAvailable=icon=>!S.cats.some(c=>c.id!==editingCat&&c.icon===icon);
@@ -139,6 +139,126 @@ const chartCategories=list=>categoryPercentages(byCat(list));
 const empty=(msg,icon)=>`<div class="empty"><div class="eic">${ic(icon)}</div>${msg}</div>`;
 const catIc=(c,cls='')=>`<div class="ic ${cls}" style="background:${categoryColor(c)}">${ic(c.icon)}</div>`;
 
+function trendModel(mode=trendMode,anchor=trendAnchor){
+ if(trendCache?.mode===mode&&trendCache.anchor===anchor&&trendCache.expenses===S.exp)return trendCache.model;
+ const date=new Date(anchor+'T12:00'),year=date.getFullYear(),month=date.getMonth();
+ const expenseTotals=new Map();
+ S.exp.forEach(e=>{
+  const key=mode==='year'?e.date.slice(0,7):e.date;
+  expenseTotals.set(key,(expenseTotals.get(key)||0)+e.amt);
+ });
+ const totalFor=key=>expenseTotals.get(key)||0;
+ let periodLabel,points=[],ticks=[];
+ if(mode==='week'){
+  const end=new Date(date),start=new Date(end);start.setDate(start.getDate()-6);
+  const sameMonth=start.getMonth()===end.getMonth();
+  periodLabel=`${start.toLocaleDateString('en-US',{month:'short'})} ${start.getDate()} – ${sameMonth?end.getDate():end.toLocaleDateString('en-US',{month:'short'})+' '+end.getDate()}`;
+  if(start.getFullYear()!==end.getFullYear())periodLabel+=`, ${end.getFullYear()}`;
+  points=Array.from({length:7},(_,i)=>{
+   const day=new Date(start);day.setDate(day.getDate()+i);const key=iso(day);
+   return{date:key,detail:day.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}),label:day.toLocaleDateString('en-US',{weekday:'short'}),value:totalFor(key)};
+  });
+  ticks=points.map((p,index)=>({index,label:p.label}));
+ }else if(mode==='year'){
+  periodLabel=String(year);
+  points=Array.from({length:12},(_,i)=>{
+   const key=String(i+1).padStart(2,'0'),dateKey=`${year}-${key}-01`,monthKey=`${year}-${key}`;
+   return{date:dateKey,detail:new Date(year,i,1).toLocaleDateString('en-US',{month:'long',year:'numeric'}),label:new Date(year,i,1).toLocaleDateString('en-US',{month:'short'}),value:totalFor(monthKey)};
+  });
+  ticks=points.map((p,index)=>({index,label:p.label}));
+ }else{
+  const monthDate=new Date(year,month,1),monthKey=iso(monthDate).slice(0,7),days=new Date(year,month+1,0).getDate();
+  periodLabel=monthDate.toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  points=Array.from({length:days},(_,i)=>{
+   const key=`${monthKey}-${String(i+1).padStart(2,'0')}`;
+   return{date:key,detail:new Date(year,month,i+1).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),label:String(i+1),value:totalFor(key)};
+  });
+  ticks=[0,7,14,21,days-1].filter((index,i,all)=>all.indexOf(index)===i).map(index=>({index,label:points[index].label}));
+ }
+ const model={mode,periodLabel,points,ticks,total:points.reduce((total,p)=>total+p.value,0)};
+ trendCache={mode,anchor,expenses:S.exp,model};
+ return model;
+}
+function trendCoordinates(points){
+ const max=Math.max(...points.map(p=>p.value),1);
+ return points.map((p,i)=>({...p,x:32+i*576/(points.length-1),y:24+(1-p.value/max)*112}));
+}
+function trendLinePath(points){
+ const fmt=n=>n.toFixed(2);
+ let path=`M ${fmt(points[0].x)} ${fmt(points[0].y)}`;
+ for(let i=1;i<points.length;i++){
+  const prev=points[i-1],point=points[i],before=points[i-2]||prev,after=points[i+1]||point;
+  const c1x=prev.x+(point.x-before.x)/6,c1y=Math.max(20,Math.min(150,prev.y+(point.y-before.y)/6));
+  const c2x=point.x-(after.x-prev.x)/6,c2y=Math.max(20,Math.min(150,point.y-(after.y-prev.y)/6));
+  path+=` C ${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(point.x)} ${fmt(point.y)}`;
+ }
+ return path;
+}
+function trendPeriodStart(mode,date){
+ const d=new Date(date+'T12:00');
+ if(mode==='week')d.setDate(d.getDate()-6);
+ else if(mode==='month')d.setDate(1);
+ else{d.setMonth(0,1)}
+ return iso(d);
+}
+function canAdvanceTrend(){
+ return trendPeriodStart(trendMode,trendAnchor)<trendPeriodStart(trendMode,today());
+}
+function trendCard(){
+ const model=trendModel(),points=trendCoordinates(model.points),line=trendLinePath(points);
+ const area=`${line} L ${points[points.length-1].x.toFixed(2)} 150 L ${points[0].x.toFixed(2)} 150 Z`;
+ const periodName={week:'week',month:'month',year:'year'}[trendMode];
+ return`<div class="card tv trend-card" id="trend-card"><h2>Spending trend</h2>
+ <div class="trend-modes" data-mode="${trendMode}" role="group" aria-label="Spending trend timeframe">${[['week','Week'],['month','Month'],['year','Year']].map(([mode,label])=>`<button type="button" class="trend-mode ${mode===trendMode?'active':''}" data-a="trend-mode" data-mode="${mode}" aria-pressed="${mode===trendMode}">${label}<span class="trend-check" aria-hidden="true">${mode===trendMode?'✓':''}</span></button>`).join('')}</div>
+ <div class="trend-period"><button type="button" data-a="trend-nav" data-dir="-1" aria-label="Previous ${periodName}">${ic('left')}</button><strong>${esc(model.periodLabel)}</strong><button type="button" data-a="trend-nav" data-dir="1" aria-label="Next ${periodName}" ${canAdvanceTrend()?'':'disabled'}>${ic('right')}</button></div>
+ <div class="trend-summary"><strong>${money(model.total)}</strong><span>Expenses</span></div>
+ <div class="trend-plot" id="trend-plot" role="group" tabindex="0" aria-label="${esc(`${model.periodLabel} spending trend`)}" aria-describedby="trend-tooltip">
+  <svg viewBox="0 0 640 170" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="trend-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#312E81" stop-opacity=".2"/><stop offset="100%" stop-color="#312E81" stop-opacity="0"/></linearGradient></defs>
+   ${[24,60,96,132].map(y=>`<line class="trend-gridline" x1="24" y1="${y}" x2="616" y2="${y}"/>`).join('')}
+   <path class="trend-area" d="${area}"/><path class="trend-line" d="${line}"/>
+   <line class="trend-indicator" x1="0" y1="16" x2="0" y2="150" visibility="hidden"/><circle class="trend-dot" cx="0" cy="0" r="5" visibility="hidden"/>
+  </svg><div class="trend-tooltip" id="trend-tooltip" role="tooltip" hidden></div>
+ </div>
+ <div class="trend-axis">${model.ticks.map((tick,i)=>`<span class="${i===0?'first':''} ${i===model.ticks.length-1?'last':''}" style="left:${points[tick.index].x/640*100}%">${esc(tick.label)}</span>`).join('')}</div>
+ </div>`;
+}
+function updateTrendCard(){
+ const card=$('trend-card');if(card)card.outerHTML=trendCard();
+}
+function scrubTrend(plot,clientX){
+ const svg=plot.querySelector('svg'),rect=svg.getBoundingClientRect(),points=trendCoordinates(trendModel().points);
+ const x=(clientX-rect.left)/rect.width*640;
+ const index=points.reduce((best,p,i)=>Math.abs(p.x-x)<Math.abs(points[best].x-x)?i:best,0),point=points[index];
+ showTrendPoint(plot,index,points);
+}
+function showTrendPoint(plot,index,points=trendCoordinates(trendModel().points)){
+ index=Math.max(0,Math.min(points.length-1,index));
+ const point=points[index];
+ const indicator=plot.querySelector('.trend-indicator'),dot=plot.querySelector('.trend-dot'),tooltip=plot.querySelector('.trend-tooltip');
+ indicator.setAttribute('x1',point.x);indicator.setAttribute('x2',point.x);indicator.setAttribute('visibility','visible');
+ dot.setAttribute('cx',point.x);dot.setAttribute('cy',point.y);dot.setAttribute('visibility','visible');
+ tooltip.innerHTML=`<strong>${esc(point.detail)}</strong><span>${money(point.value)}</span>`;
+ tooltip.hidden=false;tooltip.style.left=`${point.x/640*plot.clientWidth}px`;tooltip.style.top=`${point.y/170*plot.clientHeight}px`;
+ const horizontal=index===0?'translateX(0)':index===points.length-1?'translateX(-100%)':'translateX(-50%)';
+ const vertical=point.y<56?'translateY(8px)':'translateY(calc(-100% - 8px))';
+ tooltip.style.transform=`${horizontal} ${vertical}`;
+ plot.setAttribute('aria-label',`${point.detail}: ${money(point.value)}`);
+ plot.dataset.activeIndex=String(index);
+}
+function hideTrendScrub(plot){
+ plot.querySelector('.trend-indicator')?.setAttribute('visibility','hidden');
+ plot.querySelector('.trend-dot')?.setAttribute('visibility','hidden');
+ plot.querySelector('.trend-tooltip').hidden=true;
+ plot.removeAttribute('data-active-index');
+}
+function moveTrendPeriod(direction){
+ const date=new Date(trendAnchor+'T12:00');
+ if(trendMode==='week')date.setDate(date.getDate()+direction*7);
+ else if(trendMode==='month')date.setMonth(date.getMonth()+direction,15);
+ else date.setFullYear(date.getFullYear()+direction);
+ trendAnchor=iso(date);updateTrendCard();
+}
+
 function recentContent(list,categories){
  const colors=new Map(categories.map(x=>[x.id,x.c.color]));
  const filtered=list.filter(e=>!recentFilter||recentFilter.ids.includes(e.cat))
@@ -179,9 +299,7 @@ function overview(list,tot){
   <div class="legend" aria-label="Categories">${bc.map(x=>`<button class="lg" data-a="cs" data-id="${esc(x.id)}" aria-pressed="false">${catIc(x.c)}<span class="lg-main"><span class="lg-name">${esc(x.c.name)}</span><span class="lg-track"><i style="background:${x.c.color}" data-w="${x.v/tot*100}"></i></span></span><span class="lg-value"><span>${x.pct}%</span><strong>${money(x.v)}</strong></span></button>`).join('')}</div>`;
  }
  h+=`</div>`;
- const ms=[];for(let i=5;i>=0;i--)ms.push(shift(mk,-i));
- const vals=ms.map(k=>sum(monthExp(k))),mx=Math.max(...vals,1);
- h+=`<div class="card tv"><h2>Last 6 months</h2><div class="bars">${ms.map((k,i)=>{const height=vals[i]/mx*80;return `<button class="bar ${k===mk?'cur':''}" data-a="gm" data-v="${k}" aria-label="${mlabel(k)}: ${money(vals[i])}"><span class="bar-track"><em style="bottom:calc(${height}% + 4px)">${vals[i]?fmtC.format(vals[i]):''}</em><i data-h="${height}"></i></span><span>${new Date(k+'-15T12:00').toLocaleDateString('en-US',{month:'short'})}</span></button>`}).join('')}</div></div>`;
+ h+=trendCard();
  h+=`<div class="card tv"><div class="recent-head"><h2>Recent transactions</h2><button class="see-all" data-a="all-recent">See all</button></div><div id="recent-body" aria-live="polite">${recentContent(list,bc)}</div></div>`;
  return h;
 }
@@ -241,6 +359,7 @@ function manage(){
 }
 
 function render(){
+ trendCache=null;
  const a=$('app'),list=monthExp(mk),tot=sum(list);
  if(recentFilter&&recentFilter.month!==mk)recentFilter=null;
  const tabs=$('tabs');
@@ -251,7 +370,6 @@ function render(){
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
   a.querySelectorAll('[data-d]').forEach(e=>e.setAttribute('stroke-dasharray',e.dataset.d));
   a.querySelectorAll('[data-w]').forEach(e=>e.style.width=e.dataset.w+'%');
-  a.querySelectorAll('[data-h]').forEach(e=>e.style.height=e.dataset.h+'%');
   const b=$('big');if(b)count(b,tot);
  }));
  const T=[['ov','chart','Overview'],['ex','list','Expenses'],['add','plus','Add expense'],['cat','grid','Manage']];
@@ -456,7 +574,8 @@ document.addEventListener('click',ev=>{
  else if(a==='pm'){mk=shift(mk,-1);render()}
  else if(a==='nm'&&mk<latestMonth()){mk=shift(mk,1);render()}
  else if(a==='tm'){mk=today().slice(0,7);render()}
- else if(a==='gm'){mk=v;render()}
+ else if(a==='trend-mode'&&['week','month','year'].includes(b.dataset.mode)){trendMode=b.dataset.mode;updateTrendCard()}
+ else if(a==='trend-nav'&&!(Number(b.dataset.dir)>0&&!canAdvanceTrend()))moveTrendPeriod(Number(b.dataset.dir))
  else if(a==='cs')selectChartCategory(id,b.dataset.group==='true');
  else if(a==='clear-recent'){
   recentFilter=null;updateRecent();
@@ -502,8 +621,27 @@ document.addEventListener('input',ev=>{
  if(ev.target.id==='q'){q=ev.target.value;$('xl').innerHTML=exList()}
  else if(ev.target.id==='ea')updateExpenseForm();
 });
+document.addEventListener('pointermove',ev=>{
+ const plot=ev.target.closest?.('.trend-plot');
+ if(plot)scrubTrend(plot,ev.clientX);
+});
+document.addEventListener('pointerdown',ev=>{
+ const plot=ev.target.closest?.('.trend-plot');
+ if(plot)scrubTrend(plot,ev.clientX);
+});
+document.addEventListener('pointerout',ev=>{
+ const plot=ev.target.closest?.('.trend-plot');
+ if(plot&&ev.pointerType==='mouse'&&!plot.contains(ev.relatedTarget))hideTrendScrub(plot);
+});
 document.addEventListener('keydown',ev=>{
  const t=ev.target;
+ const plot=t.closest?.('.trend-plot');
+ if(plot&&['ArrowLeft','ArrowRight','Escape'].includes(ev.key)){
+  ev.preventDefault();
+  if(ev.key==='Escape')hideTrendScrub(plot);
+  else{const current=Number(plot.dataset.activeIndex),index=Number.isFinite(current)?current+(ev.key==='ArrowRight'?1:-1):(ev.key==='ArrowRight'?0:trendModel().points.length-1);showTrendPoint(plot,index)}
+  return;
+ }
  if($('ov').classList.contains('open')){
   if(ev.key==='Escape'){close();$('fab').focus();return}
   if(ev.key==='Enter'&&t.tagName==='INPUT'){ev.preventDefault();if(expenseStep<3)showExpenseStep(expenseStep+1);else saveExp();return}
