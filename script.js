@@ -54,6 +54,7 @@ let fmt,fmtC;
 const setFmt=()=>{fmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency});fmtC=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency,notation:'compact',maximumFractionDigits:1})};
 setFmt();
 const money=n=>fmt.format(n);
+const heroMoney=n=>fmt.formatToParts(n).map(p=>p.type==='currency'?`<span class="money-prefix">${esc(p.value)}</span>`:p.type==='decimal'||p.type==='fraction'?`<span class="money-cents">${esc(p.value)}</span>`:esc(p.value)).join('');
 const sym=()=>fmt.formatToParts(0).find(p=>p.type==='currency').value;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -67,6 +68,7 @@ const monthExp=k=>S.exp.filter(e=>e.date.slice(0,7)===k);
 const sum=a=>a.reduce((t,e)=>t+e.amt,0);
 const mlabel=k=>new Date(k+'-15T12:00').toLocaleDateString('en-US',{month:'long',year:'numeric'});
 const shift=(k,n)=>{const d=new Date(k+'-15T12:00');d.setMonth(d.getMonth()+n);return iso(d).slice(0,7)};
+const latestMonth=()=>S.exp.reduce((latest,e)=>e.date.slice(0,7)>latest?e.date.slice(0,7):latest,today().slice(0,7));
 function dayLabel(s){
  const y=new Date();y.setDate(y.getDate()-1);
  if(s===today())return'Today';
@@ -81,9 +83,9 @@ function toast(m,undo){
  t._h=setTimeout(()=>{t.classList.remove('show');undoFn=null},undo?4500:1800);
 }
 function count(el,to){
- if(reduced.matches){el.textContent=money(to);return}
+ if(reduced.matches){el.innerHTML=heroMoney(to);return}
  const t0=performance.now();
- (function f(t){const p=Math.min(1,(t-t0)/1000),e=1-Math.pow(1-p,3);el.textContent=money(to*e);if(p<1)requestAnimationFrame(f)})(t0);
+ (function f(t){const p=Math.min(1,(t-t0)/1000),e=1-Math.pow(1-p,3);el.innerHTML=heroMoney(to*e);if(p<1)requestAnimationFrame(f)})(t0);
 }
 function byCat(list){const m={};list.forEach(e=>m[e.cat]=(m[e.cat]||0)+e.amt);return Object.entries(m).map(([id,v])=>({id,v,c:cat(id)})).sort((a,b)=>b.v-a.v)}
 const empty=(msg,icon)=>`<div class="empty"><div class="eic">${ic(icon)}</div>${msg}</div>`;
@@ -94,18 +96,22 @@ function overview(list,tot){
  const elapsed=mk===cur?+now.slice(8):mk<cur?dim:0;
  const avg=elapsed?tot/elapsed:0;
  const prev=sum(monthExp(shift(mk,-1))),diff=prev?(tot-prev)/prev*100:null;
- let h=`<div class="card hero tv"><small>Spent in ${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'long'})}</small><div class="big" id="big">${money(0)}</div></div>`;
- const trend=diff==null?'<b>—</b>':`<b class="${diff>0?'up':'dn'}">${ic(diff>0?'up':'down')}${Math.abs(Math.round(diff))}%</b>`;
+ let h=`<div class="card hero tv"><small>Spent in ${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'long'})}</small><div class="big" id="big">${heroMoney(0)}</div></div>`;
+ const trend=diff==null?'<b class="no-prior">No prior data</b>':`<b class="${diff>0?'up':'dn'}">${ic(diff>0?'up':'down')}${Math.abs(Math.round(diff))}%</b>`;
  h+=`<div class="stats tv"><div class="stat"><small>Daily average</small><b>${money(avg)}</b></div><div class="stat"><small>Expenses</small><b>${list.length}</b></div><div class="stat"><small>vs last month</small>${trend}</div></div>`;
  const bc=byCat(list);
  h+=`<div class="card tv"><h2>By category</h2>`;
  if(!bc.length)h+=empty('No expenses yet this month.<br>Tap the + button to add one.','chart');
  else{
+  const small=bc.filter(x=>x.v/tot<.05);
+  const slices=bc.filter(x=>x.v/tot>=.05);
+  if(small.length)slices.push({v:small.reduce((n,x)=>n+x.v,0),c:{name:'Other',color:'#94A3B8'},group:true});
   const R=88,C=2*Math.PI*R;let off=0,seg='';
-  bc.forEach(x=>{const share=x.v/tot*C,gap=bc.length>1?Math.min(3,share*.2):0,L=share-gap;seg+=`<circle cx="115" cy="115" r="${R}" stroke="${x.c.color}" stroke-dasharray="0 ${C}" stroke-dashoffset="${-(off+gap/2)}" data-d="${L} ${C-L}"/>`;off+=share});
+  slices.forEach(x=>{const share=x.v/tot*C,gap=slices.length>1?Math.min(3,share*.2):0,L=share-gap;seg+=`<circle class="slice" cx="115" cy="115" r="${R}" stroke="${x.c.color}" stroke-dasharray="0 ${C}" stroke-dashoffset="${-(off+gap/2)}" data-d="${L} ${C-L}" data-a="cs" ${x.group?'data-group="true"':`data-id="${esc(x.id)}"`} role="button" tabindex="0" aria-label="${esc(`${x.c.name}: ${money(x.v)}, ${Math.round(x.v/tot*100)}%`)}" aria-pressed="false"/>`;off+=share});
   const chartLabel=bc.map(x=>`${x.c.name}: ${money(x.v)} (${Math.round(x.v/tot*100)}%)`).join(', ');
-  h+=`<div class="donutw" role="img" aria-label="${esc('Spending by category: '+chartLabel)}"><svg viewBox="0 0 230 230" aria-hidden="true"><circle cx="115" cy="115" r="${R}" stroke="var(--sf2)"/>${seg}</svg><div class="ctr"><span>Top category</span><b>${Math.round(bc[0].v/tot*100)}%</b><span>${esc(bc[0].c.name)}</span></div></div>
-  <div class="legend">${bc.map(x=>`<button class="lg" data-a="fc" data-id="${esc(x.id)}"><i style="background:${x.c.color}"></i>${esc(x.c.name)} ${Math.round(x.v/tot*100)}%</button>`).join('')}</div>`;
+  h+=`<div class="donutw"><svg viewBox="0 0 230 230" role="group" aria-label="${esc('Spending by category: '+chartLabel)}"><circle cx="115" cy="115" r="${R}" stroke="var(--sf2)"/>${seg}</svg><div class="ctr" id="chart-center" aria-live="polite"><span>Top category</span><b>${Math.round(bc[0].v/tot*100)}%</b><span>${esc(bc[0].c.name)}</span></div></div>
+  ${small.length?'<p class="legend-note">Small slices are grouped as Other; select a category below for details.</p>':''}
+  <div class="legend" aria-label="Categories">${bc.map(x=>`<button class="lg" data-a="cs" data-id="${esc(x.id)}" aria-pressed="false"><i style="background:${x.c.color}"></i><span class="lg-name">${esc(x.c.name)}</span><span class="lg-value">${Math.round(x.v/tot*100)}%</span></button>`).join('')}</div>`;
  }
  h+=`</div>`;
  const ms=[];for(let i=5;i>=0;i--)ms.push(shift(mk,-i));
@@ -113,6 +119,17 @@ function overview(list,tot){
  h+=`<div class="card tv"><h2>Last 6 months</h2><div class="bars">${ms.map((k,i)=>`<button class="bar ${k===mk?'cur':''}" data-a="gm" data-v="${k}" aria-label="${mlabel(k)}: ${money(vals[i])}"><em>${vals[i]?fmtC.format(vals[i]):''}</em><i data-h="${Math.max(vals[i]/mx*72,vals[i]?4:2)}"></i>${new Date(k+'-15T12:00').toLocaleDateString('en-US',{month:'short'})}</button>`).join('')}</div></div>`;
  if(bc.length)h+=`<div class="card tv"><h2>Top categories</h2>${bc.slice(0,5).map(x=>`<div class="row tap" role="button" tabindex="0" data-a="fc" data-id="${esc(x.id)}">${catIc(x.c)}<div class="rb"><b>${esc(x.c.name)}</b><div class="pg"><i style="background:${x.c.color}" data-w="${x.v/bc[0].v*100}"></i></div></div><div class="amt">${money(x.v)}</div></div>`).join('')}</div>`;
  return h;
+}
+
+function selectChartCategory(id,group){
+ const bc=byCat(monthExp(mk)),tot=sum(monthExp(mk));
+ const selected=group?{v:bc.filter(x=>x.v/tot<.05).reduce((n,x)=>n+x.v,0),c:{name:'Other'}}:bc.find(x=>x.id===id);
+ if(!selected)return;
+ $('chart-center').innerHTML=`<span>${group?'Grouped categories':'Selected category'}</span><b>${Math.round(selected.v/tot*100)}%</b><span>${esc(selected.c.name)}</span><span>${money(selected.v)}</span>${group?'':`<button class="chart-link" data-a="fc" data-id="${esc(id)}">View expenses</button>`}`;
+ document.querySelectorAll('[data-a="cs"]').forEach(el=>{
+  const active=group?el.dataset.group==='true':el.dataset.id===id;
+  el.setAttribute('aria-pressed',String(active));
+ });
 }
 
 function exList(){
@@ -155,7 +172,7 @@ function manage(){
 function render(){
  const a=$('app'),list=monthExp(mk),tot=sum(list);
  let h=tab==='cat'?`<header><h1>Manage</h1></header>`
-  :`<header><h1>Pocketbook</h1><div class="hr"><div class="mon"><button data-a="pm" aria-label="Previous month">${ic('left')}</button><button class="ml" data-a="tm" title="Jump to this month" aria-label="${mlabel(mk)}">${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'short',year:'numeric'})}</button><button data-a="nm" aria-label="Next month">${ic('right')}</button></div></div></header>`;
+  :`<header><h1>Pocketbook</h1><div class="hr"><div class="mon"><button data-a="pm" aria-label="Previous month">${ic('left')}</button><button class="ml" data-a="tm" title="Jump to this month" aria-label="${mlabel(mk)}">${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'short',year:'numeric'})}</button><button data-a="nm" aria-label="Next month" ${mk>=latestMonth()?'disabled':''}>${ic('right')}</button></div></div></header>`;
  h+=tab==='ov'?overview(list,tot):tab==='ex'?expenses():manage();
  a.innerHTML=h;
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -245,9 +262,10 @@ document.addEventListener('click',ev=>{
  const a=b.dataset.a,id=b.dataset.id,v=b.dataset.v;
  if(a==='tab'){tab=v;fcat=null;q='';render();scrollTo({top:0})}
  else if(a==='pm'){mk=shift(mk,-1);render()}
- else if(a==='nm'){mk=shift(mk,1);render()}
+ else if(a==='nm'&&mk<latestMonth()){mk=shift(mk,1);render()}
  else if(a==='tm'){mk=today().slice(0,7);render()}
  else if(a==='gm'){mk=v;render()}
+ else if(a==='cs')selectChartCategory(id,b.dataset.group==='true');
  else if(a==='fc'){fcat=id;q='';tab='ex';render();scrollTo({top:0})}
  else if(a==='cf'){fcat=null;render()}
  else if(a==='ee')openSheet(id);
@@ -278,14 +296,14 @@ document.addEventListener('keydown',ev=>{
   if(ev.key==='Enter'&&t.tagName==='INPUT'){ev.preventDefault();saveExp();return}
  }
  if(ev.key==='Enter'&&t.id==='cn'){addCat();return}
- if((ev.key==='Enter'||ev.key===' ')&&t.matches('[role=button][data-a]')){ev.preventDefault();t.click()}
+ if((ev.key==='Enter'||ev.key===' ')&&t.matches('[role=button][data-a]')){ev.preventDefault();t.dispatchEvent(new MouseEvent('click',{bubbles:true}))}
 });
 let sx=0,sy=0;
 $('app').addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY},{passive:true});
 $('app').addEventListener('touchend',e=>{
  if(tab==='cat')return;
  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
- if(Math.abs(dx)>70&&Math.abs(dy)<40){mk=shift(mk,dx<0?1:-1);render()}
+ if(Math.abs(dx)>70&&Math.abs(dy)<40&&(dx>0||mk<latestMonth())){mk=shift(mk,dx<0?1:-1);render()}
 },{passive:true});
 $('fab').addEventListener('click',()=>openSheet());
 render();
