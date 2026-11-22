@@ -254,7 +254,7 @@ function overview(list,tot){
  const {necessaryCents,discretionaryCents,totalCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
  return`<section class="card hero tv ${heroExpanded?'expanded':''}">
   <button type="button" class="hero-toggle" data-a="hero-toggle" aria-label="Toggle Necessary vs. Discretionary breakdown" aria-expanded="${heroExpanded}" aria-controls="hero-breakdown"></button>
-  <div class="hero-summary"><div><small>Spent This Month <span class="hero-chevron" aria-hidden="true">⌄</span></small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
+  <div class="hero-summary"><div><small>Spent This Month</small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
   ${budgetMeter(list,tot)}
   <div class="budget-label"><strong>${shortMoney(tot)} spent</strong>${S.budget>0?`<span>of ${shortMoney(S.budget)}</span>`:'<button data-a="budget-setup">Set a monthly budget</button>'}</div>
   <div class="hero-breakdown-wrap" id="hero-breakdown" aria-hidden="${!heroExpanded}"><div class="hero-breakdown-inner"><div class="hero-breakdown">
