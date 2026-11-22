@@ -26,8 +26,10 @@ types are included in JSON backups and the CSV export's Spending Type column.
 
 The Home spending banner and Expenses screens use compact currency symbols
 (for example, `$2,161.60` for CAD). KPI cards have single-line titles and
-amounts that resize to fit narrow screens. Other currency preferences are
-preserved.
+amounts that resize to fit narrow screens. The three KPI cards share a height;
+the budget and unset remaining cards link to budget setup. Other currency
+preferences are preserved. Spending by Category combines a donut with ranked,
+selectable category rows, followed by a three-column Expense Insights card.
 
 Spending Trend follows the page's month selector and defaults to cumulative
 spending. The current month's curve and fill stop at today, with a glowing
@@ -36,9 +38,10 @@ yet. Future-dated expenses remain in monthly summaries but are not plotted
 before their date. With a monthly budget set, a dashed Monthly Budget Pace
 line extends from zero to that budget at month end.
 
-The cumulative currency axis defaults to `$0`, `$1K`, `$2K`, `$3K`, `$4K`,
-expanding if spending or the budget exceeds that range. Axis labels use the
-app font with tabular numerals. The curve draws in over 600ms; reduced-motion
+Both chart modes scale their currency axis to the visible spending data with
+about 20% headroom and rounded tick intervals. In cumulative mode the scale
+also includes the budget pace; an empty chart uses a `$1` ceiling. Axis labels
+use the app font with tabular numerals. The curve draws in over 600ms; reduced-motion
 preferences disable the animation. Hover, tap, or use the arrow keys to scrub
 elapsed days with a guideline and exact-date tooltip. Future positions clamp
 to the latest elapsed day.

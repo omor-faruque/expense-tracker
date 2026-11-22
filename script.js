@@ -91,7 +91,7 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)');
 let fmt,axisFmt;
 const setFmt=()=>{
  fmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency});
- axisFmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency,notation:'compact',maximumFractionDigits:1,minimumFractionDigits:0});
+ axisFmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency,notation:'compact',maximumFractionDigits:2,minimumFractionDigits:0});
 };
 setFmt();
 const money=n=>fmt.format(n);
@@ -175,8 +175,8 @@ function reportModel(){
  const ticks=[0,7,14,21,days-1].filter((index,i,all)=>all.indexOf(index)===i).map(index=>({index,label:points[index].label}));
  const visiblePoints=points.filter(point=>point.date<=asOf);
  const budget=reportMode==='cumulative'&&S.budget>0?S.budget:null;
- const peak=Math.max(...visiblePoints.map(point=>point.value),budget||0,1),rawStep=peak/4,magnitude=10**Math.floor(Math.log10(rawStep));
- const step=reportMode==='cumulative'?Math.max(1000,Math.ceil(peak/4000)*1000):[1,1.5,2,2.5,5,10].find(n=>n*magnitude>=rawStep)*magnitude;
+ const peak=Math.max(...visiblePoints.map(point=>point.value),budget||0),rawStep=peak?peak*1.2/4:0.25,magnitude=10**Math.floor(Math.log10(rawStep));
+ const step=Math.max(0.01,[1,1.5,2,2.5,5,10].find(n=>n*magnitude>=rawStep)*magnitude);
  const yTicks=Array.from({length:5},(_,i)=>i*step);
  const model={mode:reportMode,points,visiblePoints,days,ticks,budget,yTicks,yMax:step*4,currentMonth:mk===asOf.slice(0,7)};
  reportCache={asOf,mode:reportMode,month:mk,budget:S.budget,expenses:S.exp,model};
@@ -277,23 +277,24 @@ function toggleHeroBreakdown(button){
  $('hero-breakdown').setAttribute('aria-hidden',String(!heroExpanded));
 }
 
-function donutCard(categories,tot){
- if(!tot)return`<section class="card report-side-card"><h2>Category Breakdown</h2>${empty('No spending to break down yet.','chart')}</section>`;
+function categoryCard(categories,tot){
+ if(!tot)return`<section class="card category-card"><h2>Spending by Category</h2>${empty('No expenses for this period.','chart')}</section>`;
  const R=42,C=2*Math.PI*R;let offset=0;
  const segments=categories.map(item=>{
   const share=item.v/tot*C,gap=categories.length>1?Math.min(2,share*.16):0,length=share-gap;
   const markup=`<circle cx="60" cy="60" r="${R}" stroke="${item.c.color}" stroke-dasharray="${length} ${C-length}" stroke-dashoffset="${-(offset+gap/2)}"/>`;
   offset+=share;return markup;
  }).join('');
- return`<section class="card report-side-card"><h2>Category Breakdown</h2><div class="report-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(categories.map(item=>`${item.c.name}: ${shortMoney(item.v)}`).join(', '))}"><circle class="donut-track" cx="60" cy="60" r="${R}"/>${segments}</svg><div><strong>${categories.length}</strong><span>categories</span></div></div></section>`;
+ const ranked=categoryPercentages(categories).map((item,index)=>`<button class="ranked-row" data-a="fc" data-id="${esc(item.id)}"><span class="rank-number">${String(index+1).padStart(2,'0')}</span>${catBadge(item.c)}<span class="rank-category"><strong>${esc(item.c.name)}</strong><span class="rank-track"><i style="width:${item.v/tot*100}%;background:${item.c.color}"></i></span></span><span class="rank-value"><strong>${shortMoney(item.v)}</strong><small>${item.pct}%</small></span></button>`).join('');
+ return`<section class="card category-card"><h2>Spending by Category</h2><div class="report-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(categories.map(item=>`${item.c.name}: ${shortMoney(item.v)}`).join(', '))}"><circle class="donut-track" cx="60" cy="60" r="${R}"/>${segments}</svg><div><strong>${categories.length}</strong><span>categories</span></div></div><div class="ranked-list">${ranked}</div></section>`;
 }
 function insightsCard(list,tot){
  const [year,month]=mk.split('-').map(Number),daysInMonth=new Date(year,month,0).getDate(),daysElapsed=mk===today().slice(0,7)?Number(today().slice(8)):mk<today().slice(0,7)?daysInMonth:0;
  const highest=[...list].sort((a,b)=>b.amt-a.amt)[0],lowest=[...list].sort((a,b)=>a.amt-b.amt)[0];
- const detail=expense=>expense?`${esc(expense.note||cat(expense.cat).name)} · ${shortMoney(expense.amt)}`:'—';
- return`<section class="card report-side-card"><h2>Expense Insights</h2><div class="insight-list">
-  <div><small>Highest Expense</small><strong>${detail(highest)}</strong></div>
-  <div><small>Lowest Expense</small><strong>${detail(lowest)}</strong></div>
+ const detail=expense=>expense?`<strong>${shortMoney(expense.amt)}</strong><span title="${esc(expense.note||cat(expense.cat).name)}">${esc(expense.note||cat(expense.cat).name)}</span>`:'<strong>—</strong>';
+ return`<section class="card insights-card"><h2>Expense Insights</h2><div class="insight-list">
+  <div><small>Highest Expense</small>${detail(highest)}</div>
+  <div><small>Lowest Expense</small>${detail(lowest)}</div>
   <div><small>Average Daily Spend</small><strong>${daysElapsed?shortMoney(tot/daysElapsed):'—'}</strong></div>
  </div></section>`;
 }
@@ -314,19 +315,16 @@ function spendingBreakdownCard(list){
 function reports(list,tot){
  const categories=byCat(list),budget=S.budget>0?S.budget:null,remaining=budget?budget-tot:null;
  const progress=budget?Math.min(tot/budget,1)*100:0;
- const previous=sum(monthExp(shift(mk,-1))),diff=previous?(tot-previous)/previous*100:null;
- const trendText=diff==null?'No prior month data':`${diff>0?'+':''}${Math.round(diff)}% vs last month`;
- const ranked=categories.length?`<div class="ranked-list">${categoryPercentages(categories).map((item,index)=>`<button class="ranked-row" data-a="fc" data-id="${esc(item.id)}"><span class="rank-number">${String(index+1).padStart(2,'0')}</span>${catBadge(item.c)}<span class="rank-category"><strong>${esc(item.c.name)}</strong><span class="rank-track"><i style="width:${tot?item.v/tot*100:0}%;background:${item.c.color}"></i></span></span><span class="rank-value"><strong>${shortMoney(item.v)}</strong><small>${item.pct}%</small></span></button>`).join('')}</div>`:empty('No expenses for this period.','chart');
  const remainingText=remaining==null?'Set budget':shortMoney(Math.abs(remaining));
  return`<div class="report-summary-grid">
-  <section class="card report-stat"><small>Total Expenses</small><strong>${shortMoney(tot)}</strong><span>${list.length} transactions · ${trendText}</span></section>
-  <button class="card report-stat budget-stat" data-a="budget-setup"><small>Monthly Budget</small><strong>${budget?shortMoney(budget):'Not set'}</strong><span class="mini-progress"><i style="width:${progress}%"></i></span></button>
-  <section class="card report-stat remaining-stat ${remaining!=null&&remaining<0?'over':''}"><small>Remaining</small><strong>${remainingText}</strong><span>${budget?remaining<0?'Over budget':`${Math.round(progress)}% used`:'Set a budget in More'}</span></section>
+  <section class="card report-stat"><small>Total Expenses</small><strong>${shortMoney(tot)}</strong><span>${list.length} ${list.length===1?'expense':'expenses'}</span></section>
+  <button class="card report-stat budget-stat" data-a="budget-setup"><small>Monthly Budget</small><strong>${budget?shortMoney(budget):'Not set'}</strong><span>${budget?`${Math.round(progress)}% used`:'No budget set'}</span></button>
+  ${budget?`<section class="card report-stat remaining-stat ${remaining<0?'over':''}"><small>Remaining</small><strong>${remainingText}</strong><span>${remaining<0?'Over budget':`${Math.round(progress)}% used`}</span></section>`:`<button class="card report-stat remaining-stat" data-a="budget-setup"><small>Remaining</small><strong>${remainingText}</strong><span class="set-budget-action">Tap to set →</span></button>`}
  </div>
  ${spendingBreakdownCard(list)}
  ${reportChartCard()}
- <section class="card top-spending"><div class="section-heading"><h2>Top Spending</h2><span>${esc(new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'long'}))}</span></div>${ranked}</section>
- <div class="report-side-grid">${donutCard(categories,tot)}${insightsCard(list,tot)}</div>`;
+ ${categoryCard(categories,tot)}
+ ${insightsCard(list,tot)}`;
 }
 
 function exList(){

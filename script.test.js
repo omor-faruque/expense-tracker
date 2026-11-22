@@ -194,15 +194,55 @@ test('monthly chart accumulates exact daily cents and scales to the linear budge
  assert.match(card, /Monthly Budget Pace/);
  assert.match(card, /report-budget-pace" d="M 88 150 L 616 /);
  assert.match(card, /\$0/);
- assert.match(card, /\$1K/);
- assert.match(card, /\$2K/);
+ assert.match(card, /\$1\.5K/);
  assert.match(card, /\$3K/);
- assert.match(card, /\$4K/);
- assert.equal(run('reportModel().yMax'), 4000);
+ assert.match(card, /\$4\.5K/);
+ assert.match(card, /\$6K/);
+ assert.equal(run('reportModel().yMax'), 6000);
  assert.doesNotMatch(run('chartLinePath(chartCoordinates(reportModel().points))'), / C /);
  run('S.budget=7000');
  assert.equal(run('reportModel().budget'), 7000);
  assert.ok(run('reportModel().yMax') >= 7000);
+});
+
+test('chart uses a nice scale with headroom for visible values in each mode', () => {
+ const run = app();
+ run("mk='2026-11';S.exp=[{cat:'c0',amt:70,date:'2026-11-21'},{cat:'c0',amt:10000,date:'2026-11-25'}]");
+ assert.deepEqual(JSON.parse(run('JSON.stringify(reportModel().yTicks)')), [0, 25, 50, 75, 100]);
+ const card = run('reportChartCard()');
+ for (const value of ['$0', '$25', '$50', '$75', '$100']) assert.ok(card.includes(value));
+ assert.match(card, /report-area/);
+ assert.match(card, /report-endpoint/);
+ run("reportMode='daily';S.exp=[{cat:'c0',amt:0.01,date:'2026-11-21'}]");
+ assert.deepEqual(JSON.parse(run('JSON.stringify(reportModel().yTicks)')), [0, 0.01, 0.02, 0.03, 0.04]);
+ for (const value of ['$0', '$0.01', '$0.02', '$0.03', '$0.04']) assert.ok(run('reportChartCard()').includes(value));
+ run("S.exp=[]");
+ assert.equal(run('reportModel().yMax'), 1);
+});
+
+test('report combines ranked categories and donut with a separate insights card', () => {
+ const run = app();
+ run(`mk='2026-11';S.exp=[
+  {id:'1',cat:'c0',amt:50,date:'2026-11-20',note:'Market'},
+  {id:'2',cat:'c6',amt:20,date:'2026-11-21',note:'Lunch'}
+ ]`);
+ const report = run('reports(monthExp(mk),sum(monthExp(mk)))');
+ assert.match(report, /2 expenses/);
+ assert.match(report, /No budget set/);
+ assert.match(report, /data-a="budget-setup"><small>Remaining<\/small>.*Tap to set →/);
+ assert.equal((report.match(/Spending by Category/g) || []).length, 1);
+ assert.doesNotMatch(report, /Top Spending|Category Breakdown/);
+ assert.match(report, /report-donut/);
+ assert.match(report, /data-a="fc" data-id="c0"/);
+ assert.match(report, /\$50\.00<\/strong><small>71%/);
+ assert.match(report, /\$20\.00<\/strong><small>29%/);
+ assert.match(report, /Expense Insights/);
+ assert.match(report, /Highest Expense<\/small><strong>\$50\.00<\/strong>/);
+ assert.match(report, /Lowest Expense<\/small><strong>\$20\.00<\/strong>/);
+ assert.match(report, /Average Daily Spend<\/small><strong>\$3\.33<\/strong>/);
+ const emptyReport = run('reports([],0)');
+ assert.match(emptyReport, /No expenses for this period/);
+ assert.doesNotMatch(emptyReport, /NaN|Infinity|report-donut/);
 });
 
 test('daily mode excludes only Rent and follows the page month selector', () => {
@@ -252,13 +292,13 @@ test('current month stops at today while the budget pace and axes span the full 
  ]`);
  assert.equal(run('reportModel().visiblePoints.length'), 21);
  assert.equal(run('reportModel().visiblePoints.at(-1).cumulative'), 1900);
- assert.equal(run('reportModel().yMax'), 4000);
+ assert.equal(run('reportModel().yMax'), 6000);
  assert.ok(Math.abs(run('chartCoordinates(reportModel().visiblePoints).at(-1).x') - 457.6) < 0.000001);
  const card = run('reportChartCard()');
  assert.match(card, /report-endpoint/);
  assert.match(card, /report-line" pathLength="1000"/);
  assert.match(card, /L 457\.60 150 L 88 150 Z/);
- assert.match(card, /report-budget-pace" d="M 88 150 L 616 36\.25"/);
+ assert.match(card, /report-budget-pace" d="M 88 150 L 616 74\.17"/);
  assert.match(card, />30<\/span>/);
  run("mk='2026-10'");
  assert.equal(run('reportModel().visiblePoints.length'), 31);
