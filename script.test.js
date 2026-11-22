@@ -224,6 +224,107 @@ test('budget validation updates, rejects invalid values, and removes budgets', (
  assert.equal(run("'budget' in S"), false);
 });
 
+test('budget modal saves both limits atomically and allows either to be removed', () => {
+ const run = app();
+ run(`S.budget=500;S.discretionaryBudget=100;toast=()=>{};
+ const inputs={'budget-modal-input':{validity:{badInput:false},value:'600',focus(){}},'cap-modal-input':{validity:{badInput:false},value:'0',focus(){}}};
+ const getOriginal=document.getElementById;document.getElementById=id=>inputs[id]||getOriginal(id)`);
+ assert.equal(run('saveBudgets()'), false);
+ assert.equal(run('S.budget'), 500);
+ assert.equal(run('S.discretionaryBudget'), 100);
+ run("inputs['cap-modal-input'].value=''");
+ assert.equal(run('saveBudgets()'), true);
+ assert.equal(run('S.budget'), 600);
+ assert.equal(run("'discretionaryBudget' in S"), false);
+});
+
+test('recurring bills backfill only due months, clamp month ends, and survive backup and deletion', () => {
+ const run = app();
+ run(`S.recurring=[{id:'bill',cat:'c1',amt:70,note:'Rent',spendingType:'necessary',day:31,nextMonth:'2026-01',paused:false}]`);
+ assert.equal(run("generateRecurring('2026-03-30')"), 2);
+ assert.deepEqual(JSON.parse(run('JSON.stringify(S.exp.map(e=>e.date))')), ['2026-01-31', '2026-02-28']);
+ assert.equal(run("generateRecurring('2026-03-30')"), 0);
+ run("S.exp.splice(1,1);S=normalize(JSON.parse(JSON.stringify(S)))");
+ assert.equal(run("generateRecurring('2026-03-31')"), 1);
+ assert.deepEqual(JSON.parse(run('JSON.stringify(S.exp.map(e=>e.date))')), ['2026-01-31', '2026-03-31']);
+ assert.equal(run("generateRecurring('2026-03-31')"), 0);
+ assert.equal(run("recurringDate('2028-02',31)"), '2028-02-29');
+ assert.match(run('recentExpenses(S.exp)'), /aria-label="Recurring expense"/);
+});
+
+test('render persists due occurrences and deleting one does not recreate it', () => {
+ const run = app();
+ run(`S.recurring=[{id:'bill',cat:'c1',amt:70,note:'Rent',spendingType:'necessary',day:10,nextMonth:'2026-10',paused:false}];
+ let saved;localStorage.setItem=(key,value)=>saved=value;toast=()=>{};
+ const getOriginal=document.getElementById;
+ document.getElementById=id=>id==='ov'?{classList:{contains:()=>false}}:getOriginal(id);
+ render()`);
+ assert.deepEqual(JSON.parse(run('JSON.stringify(S.exp.map(e=>e.date))')), ['2026-10-10', '2026-11-10']);
+ assert.equal(JSON.parse(run('saved')).recurring[0].nextMonth, '2026-12');
+ run('delExp(S.exp[1].id);render()');
+ assert.deepEqual(JSON.parse(run('JSON.stringify(S.exp.map(e=>e.date))')), ['2026-10-10']);
+ assert.equal(JSON.parse(run('saved')).exp.length, 1);
+});
+
+test('paused bills skip paused months and resume without duplicating an already logged month', () => {
+ const run = app();
+ run(`S.recurring=[{id:'bill',cat:'c1',amt:70,note:'Rent',spendingType:'necessary',day:15,nextMonth:'2026-01',paused:false}]`);
+ assert.equal(run("generateRecurring('2026-01-15')"), 1);
+ run('S.recurring[0].paused=true');
+ assert.equal(run("generateRecurring('2026-04-10')"), 0);
+ run("resumeRecurring(S.recurring[0],'2026-04-10')");
+ assert.equal(run("generateRecurring('2026-04-14')"), 0);
+ assert.equal(run("generateRecurring('2026-04-15')"), 1);
+ assert.deepEqual(JSON.parse(run('JSON.stringify(S.exp.map(e=>e.date))')), ['2026-01-15', '2026-04-15']);
+ run("S.recurring[0].paused=true;resumeRecurring(S.recurring[0],'2026-04-15')");
+ assert.equal(run("generateRecurring('2026-04-15')"), 0);
+});
+
+test('editing a clamped recurring expense preserves the scheduled day and updates the template', () => {
+ const run = app('2026-02-28T12:00:00');
+ run(`S.recurring=[{id:'bill',cat:'c1',amt:70,note:'Rent',spendingType:'necessary',day:31,nextMonth:'2026-03',paused:false}];
+ S.exp=[{id:'e',recurringId:'bill',cat:'c1',amt:70,note:'Rent',spendingType:'necessary',date:'2026-02-28'}];
+ editing='e';selCat='c1';selectedSpendingType='necessary';toast=()=>{};
+ const fields={ea:{value:'75'},ed:{value:'2026-02-28'},en:{value:'Updated rent'},'repeat-monthly':{checked:true},ov:{classList:{remove(){}},inert:false}};
+ const getOriginal=document.getElementById;
+ document.getElementById=id=>fields[id]||getOriginal(id);
+ saveExp()`);
+ assert.equal(run('S.recurring[0].day'), 31);
+ assert.equal(run('S.recurring[0].amt'), 75);
+ assert.equal(run('S.recurring[0].note'), 'Updated rent');
+ assert.equal(run("generateRecurring('2026-03-31')"), 1);
+ assert.equal(run('S.exp.at(-1).date'), '2026-03-31');
+ assert.equal(run('S.exp.at(-1).amt'), 75);
+});
+
+test('budgets and recurring schedules round trip through normalization', () => {
+ const run = app();
+ run(`S.cats[0].budget=100;S.discretionaryBudget=400;S.recurring=[{id:'r',cat:'c0',amt:25,note:'Bill',spendingType:'discretionary',day:31,nextMonth:'2027-02',paused:true}];
+ S.exp=[{id:'e',cat:'c0',amt:25,note:'Bill',spendingType:'discretionary',date:'2026-11-21',recurringId:'r'}];
+ S=normalize(JSON.parse(JSON.stringify(S)))`);
+ assert.equal(run('S.cats[0].budget'), 100);
+ assert.equal(run('S.discretionaryBudget'), 400);
+ assert.equal(run('S.recurring[0].paused'), true);
+ assert.equal(run('S.recurring[0].nextMonth'), '2027-02');
+ assert.equal(run('S.exp[0].recurringId'), 'r');
+});
+
+test('budget progress uses exact category and discretionary thresholds', () => {
+ const run = app();
+ assert.equal(run("budgetProgress(79,100,'#123456').color"), '#123456');
+ assert.equal(run("budgetProgress(80,100,'#123456').color"), '#F59E0B');
+ assert.equal(run("budgetProgress(100,100,'#123456').color"), '#EF4444');
+ assert.equal(run("budgetProgress(120,100,'#123456').width"), 100);
+ run("S.discretionaryBudget=100;S.cats[0].budget=100");
+ assert.match(run('discretionaryCap(9000)'), /background:#F59E0B/);
+ assert.match(run('discretionaryCap(9001)'), /background:#EF4444/);
+ const report = run("reports([{cat:'c0',amt:80,date:'2026-11-20',spendingType:'discretionary'}],80)");
+ assert.match(report, /\$80\.00<\/strong><small>\/ \$100\.00 · 80% of limit/);
+ assert.match(report, /width:80%;background:#F59E0B/);
+ assert.match(report, /\$80\.00 of \$100\.00 cap/);
+ assert.match(run('reports([],0)'), /\$0\.00<\/strong><small>\/ \$100\.00/);
+});
+
 test('all Expenses cards use compact dollar symbols without changing other currency preferences', () => {
  const run = app();
  run("mk='2026-11';S.budget=3500");

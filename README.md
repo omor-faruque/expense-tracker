@@ -24,11 +24,29 @@ and category filters. Deleted expenses can be restored using Undo.
 Older expenses and backups receive category defaults when loaded. Spending
 types are included in JSON backups and the CSV export's Spending Type column.
 
+## Recurring expenses
+
+Turn on Repeat monthly on the final expense step to create a monthly schedule.
+When the app is opened, revisited, or refreshed, it logs all due occurrences
+since the last check; it cannot log bills while the app is closed. Days that
+do not exist in a month use its last day. Editing a recurring expense updates
+that expense and the schedule for future occurrences, not past entries.
+Turning Repeat monthly off while editing pauses the schedule.
+Deleting an individual occurrence skips it permanently. Pause, resume, or
+delete schedules in More; paused months are not backfilled, and deleting a
+schedule keeps its existing expenses.
+
+Recurring schedules, their progress, spending caps, and category limits are
+included in JSON backups. CSV exports contain the logged expenses, not schedules.
+
 ## Spending analytics
 
 All screens use compact currency symbols (for example, `$2,161.60` for CAD).
 Home, Expenses, and Reports share month arrows and a month picker. Set or remove
-the monthly budget in More or using the quick budget sheet on Home and Reports.
+the overall monthly budget and discretionary cap in More or using the quick
+budget sheet on Home and Reports. Optional category limits can be set while
+adding or editing categories. Category progress turns amber at 80% and red at
+100%; discretionary cap progress turns red above 90%.
 In More, use Add category to expand the category editor; existing categories
 can also be edited there. KPI cards have single-line titles and
 amounts that resize to fit narrow screens. The three KPI cards share a height;
