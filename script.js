@@ -98,7 +98,7 @@ const money=n=>fmt.format(n);
 const shortCurrency=parts=>parts.map(p=>p.type==='currency'&&p.value.includes('$')?'$':p.value).join('');
 const shortMoney=n=>shortCurrency(fmt.formatToParts(n));
 const axisMoney=n=>shortCurrency(axisFmt.formatToParts(n));
-const heroMoney=n=>fmt.formatToParts(n).map(p=>p.type==='currency'?`<span class="money-prefix">${esc(p.value)}</span>`:p.type==='decimal'||p.type==='fraction'?`<span class="money-cents">${esc(p.value)}</span>`:esc(p.value)).join('');
+const heroMoney=n=>fmt.formatToParts(n).map(p=>p.type==='currency'?`<span class="money-prefix">${esc(shortCurrency([p]))}</span>`:p.type==='decimal'||p.type==='fraction'?`<span class="money-cents">${esc(p.value)}</span>`:esc(p.value)).join('');
 const sym=()=>fmt.formatToParts(0).find(p=>p.type==='currency').value;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -109,6 +109,7 @@ const buzz=()=>navigator.vibrate&&navigator.vibrate(8);
 let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,editingCat=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,reportCache=null,fcat=null,q='',undoFn=null;
 let selectedSpendingType='necessary';
 let reportMode='cumulative';
+let heroExpanded=false;
 let monthPickerYear=Number(mk.slice(0,4)),monthPickerOpen=false,monthPickerTriggerId='';
 const categoryColor=c=>{const legacy=LEGACY_COLORS.get(c.name);return legacy&&c.color.toUpperCase()===legacy[0]?legacy[1]:c.color};
 const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8',spendingType:'discretionary'};return {...c,color:categoryColor(c)}};
@@ -250,10 +251,16 @@ function budgetMeter(list,tot){
 function overview(list,tot){
  const prev=sum(monthExp(shift(mk,-1))),diff=prev?(tot-prev)/prev*100:null;
  const trend=diff==null?'<span class="hero-trend muted">No prior month data</span>':`<span class="hero-trend">${ic(diff>=0?'up':'down')} ${Math.abs(Math.round(diff))}% vs last month</span>`;
- return`<section class="card hero tv">
-  <div class="hero-summary"><div><small>Spent This Month</small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
+ const {necessaryCents,discretionaryCents,totalCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
+ return`<section class="card hero tv ${heroExpanded?'expanded':''}">
+  <button type="button" class="hero-toggle" data-a="hero-toggle" aria-label="Toggle Necessary vs. Discretionary breakdown" aria-expanded="${heroExpanded}" aria-controls="hero-breakdown"></button>
+  <div class="hero-summary"><div><small>Spent This Month <span class="hero-chevron" aria-hidden="true">⌄</span></small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
   ${budgetMeter(list,tot)}
-  <div class="budget-label"><strong>${money(tot)} spent</strong>${S.budget>0?`<span>of ${money(S.budget)}</span>`:'<button data-a="budget-setup">Set a monthly budget</button>'}</div>
+  <div class="budget-label"><strong>${shortMoney(tot)} spent</strong>${S.budget>0?`<span>of ${shortMoney(S.budget)}</span>`:'<button data-a="budget-setup">Set a monthly budget</button>'}</div>
+  <div class="hero-breakdown-wrap" id="hero-breakdown" aria-hidden="${!heroExpanded}"><div class="hero-breakdown-inner"><div class="hero-breakdown">
+   <div class="hero-split">${[['necessary',necessaryCents,necessaryPct],['discretionary',discretionaryCents,discretionaryPct]].map(([type,cents,pct])=>`<div><span class="hero-split-label ${type}">${SPENDING_TYPES[type]}</span><strong>${shortMoney(cents/100)} · ${pct}%</strong></div>`).join('')}</div>
+   <div class="hero-split-bar" aria-hidden="true"><span class="necessary" style="width:${necessaryShare}%"></span><span class="discretionary" style="width:${totalCents?100-necessaryShare:0}%"></span></div>
+  </div></div></div>
  </section>
  <div class="quick-actions" aria-label="Quick actions">
   <button class="quick-action" data-a="add">${ic('plus')}<span>Add Expense</span></button>
@@ -262,6 +269,12 @@ function overview(list,tot){
   <button class="quick-action" data-a="tab" data-v="reports">${ic('chart')}<span>Reports</span></button>
  </div>
  <section class="home-section"><div class="section-heading"><h2>Recent Expenses</h2><button class="see-all" data-a="all-recent">See All</button></div>${recentExpenses(list)}</section>`;
+}
+function toggleHeroBreakdown(button){
+ heroExpanded=!heroExpanded;
+ button.setAttribute('aria-expanded',String(heroExpanded));
+ button.closest('.hero').classList.toggle('expanded',heroExpanded);
+ $('hero-breakdown').setAttribute('aria-hidden',String(!heroExpanded));
 }
 
 function donutCard(categories,tot){
@@ -284,10 +297,14 @@ function insightsCard(list,tot){
   <div><small>Average Daily Spend</small><strong>${daysElapsed?shortMoney(tot/daysElapsed):'—'}</strong></div>
  </div></section>`;
 }
-function spendingBreakdownCard(list){
+function spendingBreakdown(list){
  const necessaryCents=list.reduce((total,e)=>total+(spendingTypeFor(e,S.cats)==='necessary'?Math.round(e.amt*100):0),0);
  const totalCents=list.reduce((total,e)=>total+Math.round(e.amt*100),0),discretionaryCents=totalCents-necessaryCents;
  const necessaryShare=totalCents?necessaryCents/totalCents*100:0,necessaryPct=Math.round(necessaryShare),discretionaryPct=totalCents?100-necessaryPct:0;
+ return{necessaryCents,totalCents,discretionaryCents,necessaryShare,necessaryPct,discretionaryPct};
+}
+function spendingBreakdownCard(list){
+ const {necessaryCents,totalCents,discretionaryCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
  const label=`Necessary: ${shortMoney(necessaryCents/100)} · ${necessaryPct}%; Discretionary: ${shortMoney(discretionaryCents/100)} · ${discretionaryPct}%`;
  return`<section class="card spending-breakdown"><h2>Necessary vs. Discretionary</h2><p class="spending-period">${esc(mlabel(mk))}</p>
  <div class="spending-split">${[['necessary',necessaryCents,necessaryPct],['discretionary',discretionaryCents,discretionaryPct]].map(([type,cents,pct])=>`<div><span class="spending-badge ${type}">${SPENDING_TYPES[type]}</span><strong>${shortMoney(cents/100)} · ${pct}%</strong></div>`).join('')}</div>
@@ -601,6 +618,7 @@ document.addEventListener('click',ev=>{
  const a=b.dataset.a,id=b.dataset.id,v=b.dataset.v;
  if(backspaceHoldTriggered&&!(a==='calc'&&b.dataset.key==='back'))backspaceHoldTriggered=false;
  if(a==='tab'){tab=v;fcat=null;q='';render();scrollTo({top:0})}
+ else if(a==='hero-toggle')toggleHeroBreakdown(b);
  else if(a==='add')openSheet();
  else if(a==='month-picker')openMonthPicker();
  else if(a==='mp-year'){monthPickerYear+=Number(v);renderMonthPicker()}

@@ -99,6 +99,47 @@ test('monthly breakdown uses expense overrides, exact cents, and complementary p
  assert.match(allDiscretionary, /\$0\.30 · 100%/);
 });
 
+test('home hero breakdown follows the selected month and uses compact currency', () => {
+ const run = app();
+ run(`mk='2026-11';S.budget=3500;S.exp=[
+  {id:'1',cat:'c6',amt:2056.60,date:'2026-11-20',spendingType:'necessary'},
+  {id:'2',cat:'c1',amt:105,date:'2026-11-21',spendingType:'discretionary'},
+  {id:'3',cat:'c0',amt:999,date:'2026-10-20'}
+ ]`);
+ const hero = run("overview(monthExp(mk),sum(monthExp(mk))).split('</section>')[0]");
+ assert.match(hero, /aria-expanded="false" aria-controls="hero-breakdown"/);
+ assert.match(hero, /id="hero-breakdown" aria-hidden="true"/);
+ assert.match(hero, /\$2,056\.60 · 95%/);
+ assert.match(hero, /\$105\.00 · 5%/);
+ assert.match(hero, /\$2,161\.60 spent/);
+ assert.match(hero, /of \$3,500\.00/);
+ assert.doesNotMatch(hero, /CA\$|\$999\.00/);
+ assert.match(run('heroMoney(2161.6)'), /money-prefix">\$/);
+ assert.doesNotMatch(run('heroMoney(2161.6)'), /CA\$/);
+ run("S.currency='EUR';setFmt()");
+ assert.match(run('heroMoney(2161.6)'), /money-prefix">€/);
+ assert.match(run('overview([],0)'), /€0\.00 · 0%/);
+ assert.doesNotMatch(run('overview([],0)'), /NaN|Infinity/);
+});
+
+test('home hero toggle updates its expanded state and survives rerendering', () => {
+ const run = app();
+ run(`const panel={setAttribute(name,value){this[name]=value}};
+ const hero={classList:{toggle(name,value){this[name]=value}}};
+ const button={setAttribute(name,value){this[name]=value},closest(){return hero}};
+ const originalGet=document.getElementById;
+ document.getElementById=id=>id==='hero-breakdown'?panel:originalGet(id);
+ toggleHeroBreakdown(button)`);
+ assert.equal(run("button['aria-expanded']"), 'true');
+ assert.equal(run("panel['aria-hidden']"), 'false');
+ assert.equal(run("hero.classList.expanded"), true);
+ assert.match(run('overview([],0)'), /aria-expanded="true"/);
+ run('toggleHeroBreakdown(button)');
+ assert.equal(run("button['aria-expanded']"), 'false');
+ assert.equal(run("panel['aria-hidden']"), 'true');
+ assert.equal(run("hero.classList.expanded"), false);
+});
+
 test('recent rows show type and date without duplicate category; CSV includes saved type', () => {
  const run = app();
  run(`S.exp=[{id:'1',cat:'c6',amt:20,date:'2026-11-20',note:'',spendingType:'necessary'}]`);

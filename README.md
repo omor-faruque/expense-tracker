@@ -16,13 +16,15 @@ keeps its saved type unless you change it or choose another category.
 Category renames and deletions do not reclassify saved expenses.
 
 Home shows a subtle spending-type badge beside each recent expense's date.
-The Expenses analytics screen (Reports tab) shows the selected month's split.
+Tap the Home spending banner to expand or collapse the selected month's split;
+the budget setup button remains a separate action. The Expenses analytics
+screen (Reports tab) also shows the selected month's split.
 Older expenses and backups receive category defaults when loaded. Spending
 types are included in JSON backups and the CSV export's Spending Type column.
 
 ## Spending analytics
 
-The Expenses screens use compact currency symbols across all cards and rows
+The Home spending banner and Expenses screens use compact currency symbols
 (for example, `$2,161.60` for CAD). KPI cards have single-line titles and
 amounts that resize to fit narrow screens. Other currency preferences are
 preserved.
