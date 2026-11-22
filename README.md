@@ -2,6 +2,53 @@
 
 Pocketbook is a framework-free expense tracker. No build step is required.
 
+## Spending types
+
+Expenses are classified as Necessary or Discretionary. Rent, Groceries,
+Utilities, Phone & Internet, Gas, Transport, TTC, and Health default to
+Necessary; Dining Out, Shopping, Fun, Miscellaneous, and custom categories
+default to Discretionary. Category names matching a Necessary default use
+that default, including newly created categories.
+
+Use the one-tap toggle on the category step to override an expense's type.
+Choosing a different category applies its default again. Editing an expense
+keeps its saved type unless you change it or choose another category.
+Category renames and deletions do not reclassify saved expenses.
+
+Home shows a subtle spending-type badge beside each recent expense's date.
+The Expenses analytics screen (Reports tab) shows the selected month's split.
+Older expenses and backups receive category defaults when loaded. Spending
+types are included in JSON backups and the CSV export's Spending Type column.
+
+## Spending analytics
+
+The Expenses screens use compact currency symbols across all cards and rows
+(for example, `$2,161.60` for CAD). KPI cards have single-line titles and
+amounts that resize to fit narrow screens. Other currency preferences are
+preserved.
+
+Spending Trend follows the page's month selector and defaults to cumulative
+spending. The current month's curve and fill stop at today, with a glowing
+endpoint; past months show all days, and future months have no spending curve
+yet. Future-dated expenses remain in monthly summaries but are not plotted
+before their date. With a monthly budget set, a dashed Monthly Budget Pace
+line extends from zero to that budget at month end.
+
+The cumulative currency axis defaults to `$0`, `$1K`, `$2K`, `$3K`, `$4K`,
+expanding if spending or the budget exceeds that range. Axis labels use the
+app font with tabular numerals. The curve draws in over 600ms; reduced-motion
+preferences disable the animation. Hover, tap, or use the arrow keys to scrub
+elapsed days with a guideline and exact-date tooltip. Future positions clamp
+to the latest elapsed day.
+
+Daily (Excl. Rent) shows daily spending excluding only the category named
+Rent (case-insensitive), while its tooltip still shows the full cumulative
+total. The budget pace is hidden in this mode, and its axis scales to daily
+amounts to keep everyday spending visible. The toggle sits beside the chart
+heading; the page's month selector is the only timeframe control.
+
+Run the regression tests with `node --test script.test.js`.
+
 ## Install and use offline
 
 Serve this directory over HTTPS, or use localhost for development (for example,

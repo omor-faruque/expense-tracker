@@ -52,26 +52,31 @@ const DEF=[['Groceries','cart',0],['Rent','home',1],['Utilities','bolt',2],['Pho
 const CUR=['USD','EUR','GBP','CAD','AUD','INR','BDT','JPY','CNY','CHF','MXN','BRL'];
 const KEY='pocketbook.v1';
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
+const SPENDING_TYPES={necessary:'Necessary',discretionary:'Discretionary'};
+const NECESSARY_CATEGORIES=new Set(['rent','groceries','utilities','phone & internet','gas','transport','ttc','health']);
+const defaultSpendingType=name=>NECESSARY_CATEGORIES.has(name.trim().toLowerCase())?'necessary':'discretionary';
+const validSpendingType=value=>typeof value==='string'&&Object.hasOwn(SPENDING_TYPES,value);
+const spendingTypeFor=(expense,categories)=>validSpendingType(expense.spendingType)?expense.spendingType:categories.find(c=>c.id===expense.cat)?.spendingType||'discretionary';
 
-const fresh=()=>({cats:DEF.map((d,i)=>({id:'c'+i,name:d[0],icon:d[1],color:COL[d[2]]})),exp:[],currency:'CAD',categoryDefaultsAdded:true});
+const fresh=()=>({cats:DEF.map((d,i)=>({id:'c'+i,name:d[0],icon:d[1],color:COL[d[2]],spendingType:defaultSpendingType(d[0])})),exp:[],currency:'CAD',categoryDefaultsAdded:true});
 // Validates stored/imported data; colors and ids end up in HTML attributes, so they must be sanitized.
 function normalize(d){
  if(!d||!Array.isArray(d.cats)||!Array.isArray(d.exp))return null;
  const addDefaultCategories=d.categoryDefaultsAdded!==true;
  const cats=d.cats.filter(c=>c&&c.id!=null&&c.name).map(c=>{
   const name=String(c.name).slice(0,24),migrateTtc=addDefaultCategories&&name.toLowerCase()==='ttc'&&c.icon==='car'&&c.color===COL[7];
-  return{id:String(c.id),name,icon:migrateTtc?'subway':PICK.includes(c.icon)?c.icon:'tag',color:migrateTtc?COL[12]:/^#[0-9a-f]{6}$/i.test(c.color)?c.color:COL[10]};
+  return{id:String(c.id),name,icon:migrateTtc?'subway':PICK.includes(c.icon)?c.icon:'tag',color:migrateTtc?COL[12]:/^#[0-9a-f]{6}$/i.test(c.color)?c.color:COL[10],spendingType:validSpendingType(c.spendingType)?c.spendingType:defaultSpendingType(name)};
  });
  if(addDefaultCategories)[['TTC','subway',COL[12]],['Miscellaneous','tag',COL[10]]].forEach(([name,icon,color],i)=>{
   if(!cats.some(c=>c.name.toLowerCase()===name.toLowerCase())){
    let id='c'+(DEF.length+i);
    while(cats.some(c=>c.id===id))id+='x';
-   cats.push({id,name,icon,color});
+   cats.push({id,name,icon,color,spendingType:defaultSpendingType(name)});
   }
  });
  return{
   cats,
-  exp:d.exp.filter(e=>e&&e.id!=null&&DATE_RE.test(e.date)&&isFinite(e.amt)&&+e.amt>0).map(e=>({id:String(e.id),cat:String(e.cat),amt:Math.round(+e.amt*100)/100,note:String(e.note||'').slice(0,40),date:e.date})),
+  exp:d.exp.filter(e=>e&&e.id!=null&&DATE_RE.test(e.date)&&isFinite(e.amt)&&+e.amt>0).map(e=>({id:String(e.id),cat:String(e.cat),amt:Math.round(+e.amt*100)/100,note:String(e.note||'').slice(0,40),date:e.date,spendingType:spendingTypeFor({...e,cat:String(e.cat)},cats)})),
   ...('budget' in d?{budget:Math.max(0,+d.budget||0)}:{}),
   currency:CUR.includes(d.currency)?d.currency:'CAD',
   categoryDefaultsAdded:true};
@@ -83,10 +88,16 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('
 
 const $=id=>document.getElementById(id);
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
-let fmt;
-const setFmt=()=>{fmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency})};
+let fmt,axisFmt;
+const setFmt=()=>{
+ fmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency});
+ axisFmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency,notation:'compact',maximumFractionDigits:1,minimumFractionDigits:0});
+};
 setFmt();
 const money=n=>fmt.format(n);
+const shortCurrency=parts=>parts.map(p=>p.type==='currency'&&p.value.includes('$')?'$':p.value).join('');
+const shortMoney=n=>shortCurrency(fmt.formatToParts(n));
+const axisMoney=n=>shortCurrency(axisFmt.formatToParts(n));
 const heroMoney=n=>fmt.formatToParts(n).map(p=>p.type==='currency'?`<span class="money-prefix">${esc(p.value)}</span>`:p.type==='decimal'||p.type==='fraction'?`<span class="money-cents">${esc(p.value)}</span>`:esc(p.value)).join('');
 const sym=()=>fmt.formatToParts(0).find(p=>p.type==='currency').value;
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -95,10 +106,12 @@ const today=()=>iso(new Date());
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const buzz=()=>navigator.vibrate&&navigator.vibrate(8);
 
-let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,editingCat=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,reportRange='month',reportCache=null,fcat=null,q='',undoFn=null;
+let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editing=null,editingCat=null,expenseStep=0,expenseCalendarMonth=today().slice(0,7),backspaceTimer=null,backspaceHoldTriggered=false,reportCache=null,fcat=null,q='',undoFn=null;
+let selectedSpendingType='necessary';
+let reportMode='cumulative';
 let monthPickerYear=Number(mk.slice(0,4)),monthPickerOpen=false,monthPickerTriggerId='';
 const categoryColor=c=>{const legacy=LEGACY_COLORS.get(c.name);return legacy&&c.color.toUpperCase()===legacy[0]?legacy[1]:c.color};
-const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8'};return {...c,color:categoryColor(c)}};
+const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8',spendingType:'discretionary'};return {...c,color:categoryColor(c)}};
 const iconAvailable=icon=>!S.cats.some(c=>c.id!==editingCat&&c.icon===icon);
 const colorAvailable=color=>!S.cats.some(c=>c.id!==editingCat&&categoryColor(c).toUpperCase()===color.toUpperCase());
 function ensureNewCategoryChoices(){
@@ -140,86 +153,74 @@ const empty=(msg,icon)=>`<div class="empty"><div class="eic">${ic(icon)}</div>${
 const catIc=(c,cls='')=>`<div class="ic ${cls}" style="background:${categoryColor(c)}">${ic(c.icon)}</div>`;
 const REPORT_COLORS=['#4F46E5','#F59E0B','#10B981','#0EA5E9'];
 const catBadge=c=>`<div class="cat-badge" style="--cat-color:${categoryColor(c)};background:${categoryColor(c)}1A">${ic(c.icon)}</div>`;
+const spendingBadge=expense=>{const type=spendingTypeFor(expense,S.cats);return`<span class="spending-badge ${type}">${SPENDING_TYPES[type]}</span>`};
 
 function reportModel(){
- if(reportCache?.range===reportRange&&reportCache.month===mk&&reportCache.expenses===S.exp)return reportCache.model;
- const [year,month]=mk.split('-').map(Number),dayTotals=new Map(),monthTotals=new Map();
- S.exp.forEach(e=>{
-  dayTotals.set(e.date,(dayTotals.get(e.date)||0)+e.amt);
-  const key=e.date.slice(0,7);monthTotals.set(key,(monthTotals.get(key)||0)+e.amt);
+ const asOf=today();
+ if(reportCache?.asOf===asOf&&reportCache.mode===reportMode&&reportCache.month===mk&&reportCache.budget===S.budget&&reportCache.expenses===S.exp)return reportCache.model;
+ const [year,month]=mk.split('-').map(Number),days=new Date(year,month,0).getDate(),dayTotals=new Map(),dailyWithoutRent=new Map();
+ monthExp(mk).forEach(e=>{
+  const cents=Math.round(e.amt*100);
+  dayTotals.set(e.date,(dayTotals.get(e.date)||0)+cents);
+  if(cat(e.cat).name.trim().toLowerCase()!=='rent')dailyWithoutRent.set(e.date,(dailyWithoutRent.get(e.date)||0)+cents);
  });
- const totalForDay=key=>dayTotals.get(key)||0,totalForMonth=key=>monthTotals.get(key)||0;
- let points=[],ticks=[];
- if(reportRange==='week'){
-  const end=mk===today().slice(0,7)?new Date(today()+'T12:00'):new Date(year,month,0);
-  const start=new Date(end);start.setDate(start.getDate()-6);
-  points=Array.from({length:7},(_,i)=>{
-   const day=new Date(start);day.setDate(day.getDate()+i);const key=iso(day);
-   return{date:key,detail:day.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}),label:day.toLocaleDateString('en-US',{weekday:'short'}),value:totalForDay(key)};
-  });
-  ticks=points.map((point,index)=>({index,label:point.label}));
- }else if(reportRange==='year'){
-  points=Array.from({length:12},(_,i)=>{
-   const date=new Date(year,i,1),key=`${year}-${String(i+1).padStart(2,'0')}`;
-   return{date:`${key}-01`,detail:date.toLocaleDateString('en-US',{month:'long',year:'numeric'}),label:date.toLocaleDateString('en-US',{month:'short'}),value:totalForMonth(key)};
-  });
-  ticks=points.map((point,index)=>({index,label:point.label}));
- }else if(reportRange==='last3'||reportRange==='last6'){
-  const count=reportRange==='last3'?3:6;
-  points=Array.from({length:count},(_,i)=>{
-   const key=shift(mk,i-count+1);
-   return{date:`${key}-15`,detail:mlabel(key),label:new Date(key+'-15T12:00').toLocaleDateString('en-US',{month:'short'}),value:totalForMonth(key)};
-  });
-  ticks=points.map((point,index)=>({index,label:point.label}));
- }else{
-  const days=new Date(year,month,0).getDate(),key=mk;
-  points=Array.from({length:days},(_,i)=>{
-   const date=`${key}-${String(i+1).padStart(2,'0')}`;
-   return{date,detail:new Date(year,month-1,i+1).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),label:String(i+1),value:totalForDay(date)};
-  });
-  ticks=[0,7,14,21,days-1].filter((index,i,all)=>all.indexOf(index)===i).map(index=>({index,label:points[index].label}));
- }
- const model={range:reportRange,points,ticks};
- reportCache={range:reportRange,month:mk,expenses:S.exp,model};
+ let cumulativeCents=0;
+ const points=Array.from({length:days},(_,i)=>{
+  const date=`${mk}-${String(i+1).padStart(2,'0')}`;
+  cumulativeCents+=dayTotals.get(date)||0;
+  const daily=(dayTotals.get(date)||0)/100,dailyExRent=(dailyWithoutRent.get(date)||0)/100,cumulative=cumulativeCents/100;
+  return{date,detail:new Date(year,month-1,i+1).toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'}),label:String(i+1),daily,dailyExRent,cumulative,value:reportMode==='cumulative'?cumulative:dailyExRent};
+ });
+ const ticks=[0,7,14,21,days-1].filter((index,i,all)=>all.indexOf(index)===i).map(index=>({index,label:points[index].label}));
+ const visiblePoints=points.filter(point=>point.date<=asOf);
+ const budget=reportMode==='cumulative'&&S.budget>0?S.budget:null;
+ const peak=Math.max(...visiblePoints.map(point=>point.value),budget||0,1),rawStep=peak/4,magnitude=10**Math.floor(Math.log10(rawStep));
+ const step=reportMode==='cumulative'?Math.max(1000,Math.ceil(peak/4000)*1000):[1,1.5,2,2.5,5,10].find(n=>n*magnitude>=rawStep)*magnitude;
+ const yTicks=Array.from({length:5},(_,i)=>i*step);
+ const model={mode:reportMode,points,visiblePoints,days,ticks,budget,yTicks,yMax:step*4,currentMonth:mk===asOf.slice(0,7)};
+ reportCache={asOf,mode:reportMode,month:mk,budget:S.budget,expenses:S.exp,model};
  return model;
 }
-function chartCoordinates(points){
- const max=Math.max(...points.map(point=>point.value),1);
- return points.map((point,i)=>({...point,x:32+i*576/(points.length-1),y:24+(1-point.value/max)*112}));
+const CHART={left:88,right:616,top:20,bottom:150,width:640,height:170};
+const chartY=(value,max)=>CHART.bottom-value/max*(CHART.bottom-CHART.top);
+function chartCoordinates(points,max=reportModel().yMax,days=reportModel().days){
+ return points.map(point=>({...point,x:CHART.left+Number(point.label)/days*(CHART.right-CHART.left),y:chartY(point.value,max)}));
 }
 function chartLinePath(points){
- const fmt=n=>n.toFixed(2);let path=`M ${fmt(points[0].x)} ${fmt(points[0].y)}`;
- for(let i=1;i<points.length;i++){
-  const prev=points[i-1],point=points[i],before=points[i-2]||prev,after=points[i+1]||point;
-  const c1x=prev.x+(point.x-before.x)/6,c1y=Math.max(20,Math.min(150,prev.y+(point.y-before.y)/6));
-  const c2x=point.x-(after.x-prev.x)/6,c2y=Math.max(20,Math.min(150,point.y-(after.y-prev.y)/6));
-  path+=` C ${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(point.x)} ${fmt(point.y)}`;
- }
- return path;
+ return points.length?`M ${CHART.left} ${CHART.bottom} `+points.map(point=>`L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' '):'';
 }
 function reportChartCard(){
- const model=reportModel(),points=chartCoordinates(model.points),line=chartLinePath(points),area=`${line} L ${points[points.length-1].x.toFixed(2)} 150 L ${points[0].x.toFixed(2)} 150 Z`;
- const ranges=[['week','This Week'],['month','This Month'],['last3','Last 3 Months'],['last6','Last 6 Months'],['year','This Year']];
- return`<div class="card report-chart"><div class="report-chart-head"><h2>Spending Trend</h2><label class="range-select">${ic('calendar')}<select id="report-range" aria-label="Spending trend timeframe">${ranges.map(([key,label])=>`<option value="${key}" ${key===reportRange?'selected':''}>${label}</option>`).join('')}</select></label></div>
- <div class="report-plot" id="report-plot" role="group" tabindex="0" aria-label="Spending trend chart" aria-describedby="report-tooltip"><svg viewBox="0 0 640 170" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="report-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#1E3A8A" stop-opacity=".2"/><stop offset="100%" stop-color="#1E3A8A" stop-opacity="0"/></linearGradient></defs>
- ${[24,60,96,132].map(y=>`<line class="report-gridline" x1="24" y1="${y}" x2="616" y2="${y}"/>`).join('')}<path class="report-area" d="${area}"/><path class="report-line" d="${line}"/><line class="report-indicator" x1="0" y1="16" x2="0" y2="150" visibility="hidden"/><circle class="report-dot" cx="0" cy="0" r="5" visibility="hidden"/></svg><div class="report-tooltip" id="report-tooltip" role="tooltip" hidden></div></div>
- <div class="report-axis">${model.ticks.map((tick,i)=>`<span class="${i===0?'first':''} ${i===model.ticks.length-1?'last':''}" style="left:${points[tick.index].x/640*100}%">${esc(tick.label)}</span>`).join('')}</div></div>`;
+ const model=reportModel(),points=chartCoordinates(model.visiblePoints,model.yMax,model.days),axisPoints=chartCoordinates(model.points,model.yMax,model.days),endpoint=points.at(-1);
+ const line=chartLinePath(points),area=endpoint?`${line} L ${endpoint.x.toFixed(2)} ${CHART.bottom} L ${CHART.left} ${CHART.bottom} Z`:'';
+ const chartLabel=reportMode==='cumulative'?'Cumulative monthly spending chart':'Daily spending excluding Rent chart';
+ const pace=model.budget?`<path class="report-budget-pace" d="M ${CHART.left} ${CHART.bottom} L ${CHART.right} ${chartY(model.budget,model.yMax).toFixed(2)}"/>`:'';
+ const endpointDot=endpoint&&model.currentMonth&&reportMode==='cumulative'?`<span class="report-endpoint" aria-hidden="true" style="left:${endpoint.x/CHART.width*100}%;top:${endpoint.y/CHART.height*100}%"></span>`:'';
+ return`<div class="card report-chart"><div class="report-chart-head"><h2>Spending Trend</h2>
+ <div class="report-mode" role="group" aria-label="Monthly chart mode">${[['cumulative','Cumulative'],['daily','Daily (Excl. Rent)']].map(([mode,label])=>`<button type="button" data-a="report-mode" data-v="${mode}" class="${mode===reportMode?'on':''}" aria-pressed="${mode===reportMode}">${label}</button>`).join('')}</div></div>
+ <div class="report-legend"><span class="spending-key">${reportMode==='cumulative'?'Cumulative spending':'Daily (Excl. Rent)'}</span>${model.budget?'<span class="pace-key">Monthly Budget Pace</span>':''}</div>
+ <div class="report-plot" id="report-plot" role="group" tabindex="0" aria-label="${chartLabel}" aria-describedby="report-tooltip"><svg viewBox="0 0 640 170" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="report-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6366F1" stop-opacity=".24"/><stop offset="100%" stop-color="#6366F1" stop-opacity=".01"/></linearGradient></defs>
+ ${model.yTicks.map(value=>`<line class="report-gridline" x1="${CHART.left}" y1="${chartY(value,model.yMax)}" x2="${CHART.right}" y2="${chartY(value,model.yMax)}"/>`).join('')}${line?`<path class="report-area" d="${area}"/>`:''}${pace}${line?`<path class="report-line" pathLength="1000" d="${line}"/>`:''}<line class="report-indicator" x1="0" y1="16" x2="0" y2="150" visibility="hidden"/><circle class="report-dot" cx="0" cy="0" r="5" visibility="hidden"/></svg>
+ <div class="report-y-axis" aria-hidden="true">${model.yTicks.map(value=>`<span style="top:${chartY(value,model.yMax)/CHART.height*100}%">${esc(axisMoney(value))}</span>`).join('')}</div>${endpointDot}<div class="report-tooltip" id="report-tooltip" role="tooltip" hidden></div></div>
+ <div class="report-axis">${model.ticks.map((tick,i)=>`<span class="${i===0?'first':''} ${i===model.ticks.length-1?'last':''}" style="left:${axisPoints[tick.index].x/CHART.width*100}%">${esc(tick.label)}</span>`).join('')}</div>${points.length?'':'<p class="spending-empty">This month has not started yet.</p>'}</div>`;
 }
 function scrubReport(plot,clientX){
- const rect=plot.querySelector('svg').getBoundingClientRect(),points=chartCoordinates(reportModel().points),x=(clientX-rect.left)/rect.width*640;
+ const rect=plot.querySelector('svg').getBoundingClientRect(),points=chartCoordinates(reportModel().visiblePoints),x=(clientX-rect.left)/rect.width*CHART.width;
+ if(!points.length)return;
  const index=points.reduce((best,point,i)=>Math.abs(point.x-x)<Math.abs(points[best].x-x)?i:best,0);
  showReportPoint(plot,index,points);
 }
-function showReportPoint(plot,index,points=chartCoordinates(reportModel().points)){
+function showReportPoint(plot,index,points=chartCoordinates(reportModel().visiblePoints)){
+ if(!points.length)return;
  index=Math.max(0,Math.min(points.length-1,index));const point=points[index];
  const indicator=plot.querySelector('.report-indicator'),dot=plot.querySelector('.report-dot'),tooltip=plot.querySelector('.report-tooltip');
  indicator.setAttribute('x1',point.x);indicator.setAttribute('x2',point.x);indicator.setAttribute('visibility','visible');
  dot.setAttribute('cx',point.x);dot.setAttribute('cy',point.y);dot.setAttribute('visibility','visible');
- tooltip.innerHTML=`<strong>${esc(point.detail)}</strong><span>${money(point.value)}</span>`;tooltip.hidden=false;
- tooltip.style.left=`${point.x/640*plot.clientWidth}px`;tooltip.style.top=`${point.y/170*plot.clientHeight}px`;
- const horizontal=index===0?'translateX(0)':index===points.length-1?'translateX(-100%)':'translateX(-50%)';
- const vertical=point.y<56?'translateY(8px)':'translateY(calc(-100% - 8px))';tooltip.style.transform=`${horizontal} ${vertical}`;
- plot.setAttribute('aria-label',`${point.detail}: ${money(point.value)}`);plot.dataset.activeIndex=String(index);
+ const details=[`Cumulative: ${shortMoney(point.cumulative)}`,`${reportMode==='daily'?'Daily (Excl. Rent)':'Daily spend'}: ${shortMoney(reportMode==='daily'?point.dailyExRent:point.daily)}`];
+ tooltip.innerHTML=`<strong>${esc(point.detail)}</strong>${details.map(text=>`<span>${esc(text)}</span>`).join('')}`;tooltip.hidden=false;
+ const half=tooltip.offsetWidth/2;
+ tooltip.style.left=`${Math.max(half,Math.min(plot.clientWidth-half,point.x/CHART.width*plot.clientWidth))}px`;tooltip.style.top=`${point.y/CHART.height*plot.clientHeight}px`;
+ const vertical=point.y<70?'translateY(8px)':'translateY(calc(-100% - 8px))';tooltip.style.transform=`translateX(-50%) ${vertical}`;
+ plot.setAttribute('aria-label',`${point.detail}: ${details.join('; ')}`);plot.dataset.activeIndex=String(index);
 }
 function hideReportPoint(plot){
  plot.querySelector('.report-indicator')?.setAttribute('visibility','hidden');
@@ -231,7 +232,7 @@ function recentExpenses(list){
  if(!rows.length)return empty('No expenses yet this month.<br>Tap + to add your first one.','list');
  return`<div class="home-expenses">${rows.map(expense=>{
   const category=cat(expense.cat),date=new Date(expense.date+'T12:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  return`<button class="home-expense" data-a="ee" data-id="${esc(expense.id)}">${catBadge(category)}<span class="home-expense-main"><b>${esc(expense.note||category.name)}</b><small>${esc(category.name)} · ${date}</small></span><span class="home-expense-amount"><strong>${money(expense.amt)}</strong><small>${esc(S.currency)}</small></span></button>`;
+  return`<button class="home-expense" data-a="ee" data-id="${esc(expense.id)}">${catBadge(category)}<span class="home-expense-main"><b>${esc(expense.note||category.name)}</b><span class="home-expense-meta"><small>${date}</small>${spendingBadge(expense)}</span></span><span class="home-expense-amount"><strong>${money(expense.amt)}</strong><small>${esc(S.currency)}</small></span></button>`;
  }).join('')}</div>`;
 }
 
@@ -271,30 +272,41 @@ function donutCard(categories,tot){
   const markup=`<circle cx="60" cy="60" r="${R}" stroke="${item.c.color}" stroke-dasharray="${length} ${C-length}" stroke-dashoffset="${-(offset+gap/2)}"/>`;
   offset+=share;return markup;
  }).join('');
- return`<section class="card report-side-card"><h2>Category Breakdown</h2><div class="report-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(categories.map(item=>`${item.c.name}: ${money(item.v)}`).join(', '))}"><circle class="donut-track" cx="60" cy="60" r="${R}"/>${segments}</svg><div><strong>${categories.length}</strong><span>categories</span></div></div></section>`;
+ return`<section class="card report-side-card"><h2>Category Breakdown</h2><div class="report-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(categories.map(item=>`${item.c.name}: ${shortMoney(item.v)}`).join(', '))}"><circle class="donut-track" cx="60" cy="60" r="${R}"/>${segments}</svg><div><strong>${categories.length}</strong><span>categories</span></div></div></section>`;
 }
 function insightsCard(list,tot){
  const [year,month]=mk.split('-').map(Number),daysInMonth=new Date(year,month,0).getDate(),daysElapsed=mk===today().slice(0,7)?Number(today().slice(8)):mk<today().slice(0,7)?daysInMonth:0;
  const highest=[...list].sort((a,b)=>b.amt-a.amt)[0],lowest=[...list].sort((a,b)=>a.amt-b.amt)[0];
- const detail=expense=>expense?`${esc(expense.note||cat(expense.cat).name)} · ${money(expense.amt)}`:'—';
+ const detail=expense=>expense?`${esc(expense.note||cat(expense.cat).name)} · ${shortMoney(expense.amt)}`:'—';
  return`<section class="card report-side-card"><h2>Expense Insights</h2><div class="insight-list">
   <div><small>Highest Expense</small><strong>${detail(highest)}</strong></div>
   <div><small>Lowest Expense</small><strong>${detail(lowest)}</strong></div>
-  <div><small>Average Daily Spend</small><strong>${daysElapsed?money(tot/daysElapsed):'—'}</strong></div>
+  <div><small>Average Daily Spend</small><strong>${daysElapsed?shortMoney(tot/daysElapsed):'—'}</strong></div>
  </div></section>`;
+}
+function spendingBreakdownCard(list){
+ const necessaryCents=list.reduce((total,e)=>total+(spendingTypeFor(e,S.cats)==='necessary'?Math.round(e.amt*100):0),0);
+ const totalCents=list.reduce((total,e)=>total+Math.round(e.amt*100),0),discretionaryCents=totalCents-necessaryCents;
+ const necessaryShare=totalCents?necessaryCents/totalCents*100:0,necessaryPct=Math.round(necessaryShare),discretionaryPct=totalCents?100-necessaryPct:0;
+ const label=`Necessary: ${shortMoney(necessaryCents/100)} · ${necessaryPct}%; Discretionary: ${shortMoney(discretionaryCents/100)} · ${discretionaryPct}%`;
+ return`<section class="card spending-breakdown"><h2>Necessary vs. Discretionary</h2><p class="spending-period">${esc(mlabel(mk))}</p>
+ <div class="spending-split">${[['necessary',necessaryCents,necessaryPct],['discretionary',discretionaryCents,discretionaryPct]].map(([type,cents,pct])=>`<div><span class="spending-badge ${type}">${SPENDING_TYPES[type]}</span><strong>${shortMoney(cents/100)} · ${pct}%</strong></div>`).join('')}</div>
+ <div class="spending-bar" role="img" aria-label="${esc(label)}"><span class="necessary" style="width:${necessaryShare}%"></span><span class="discretionary" style="width:${totalCents?100-necessaryShare:0}%"></span></div>
+ ${totalCents?'':'<p class="spending-empty">No spending this month yet.</p>'}</section>`;
 }
 function reports(list,tot){
  const categories=byCat(list),budget=S.budget>0?S.budget:null,remaining=budget?budget-tot:null;
  const progress=budget?Math.min(tot/budget,1)*100:0;
  const previous=sum(monthExp(shift(mk,-1))),diff=previous?(tot-previous)/previous*100:null;
  const trendText=diff==null?'No prior month data':`${diff>0?'+':''}${Math.round(diff)}% vs last month`;
- const ranked=categories.length?`<div class="ranked-list">${categoryPercentages(categories).map((item,index)=>`<button class="ranked-row" data-a="fc" data-id="${esc(item.id)}"><span class="rank-number">${String(index+1).padStart(2,'0')}</span>${catBadge(item.c)}<span class="rank-category"><strong>${esc(item.c.name)}</strong><span class="rank-track"><i style="width:${tot?item.v/tot*100:0}%;background:${item.c.color}"></i></span></span><span class="rank-value"><strong>${money(item.v)}</strong><small>${item.pct}%</small></span></button>`).join('')}</div>`:empty('No expenses for this period.','chart');
- const remainingText=remaining==null?'Set budget':remaining<0?`${money(Math.abs(remaining))} over`:money(remaining);
+ const ranked=categories.length?`<div class="ranked-list">${categoryPercentages(categories).map((item,index)=>`<button class="ranked-row" data-a="fc" data-id="${esc(item.id)}"><span class="rank-number">${String(index+1).padStart(2,'0')}</span>${catBadge(item.c)}<span class="rank-category"><strong>${esc(item.c.name)}</strong><span class="rank-track"><i style="width:${tot?item.v/tot*100:0}%;background:${item.c.color}"></i></span></span><span class="rank-value"><strong>${shortMoney(item.v)}</strong><small>${item.pct}%</small></span></button>`).join('')}</div>`:empty('No expenses for this period.','chart');
+ const remainingText=remaining==null?'Set budget':shortMoney(Math.abs(remaining));
  return`<div class="report-summary-grid">
-  <section class="card report-stat"><small>Total Expenses</small><strong>${money(tot)}</strong><span>${list.length} transactions · ${trendText}</span></section>
-  <button class="card report-stat budget-stat" data-a="budget-setup"><small>Monthly Budget</small><strong>${budget?money(budget):'Not set'}</strong><span class="mini-progress"><i style="width:${progress}%"></i></span></button>
-  <section class="card report-stat remaining-stat ${remaining!=null&&remaining<0?'over':''}"><small>Remaining Budget</small><strong>${remainingText}</strong><span>${budget?`${Math.round(progress)}% used`:'Set a budget in More'}</span></section>
+  <section class="card report-stat"><small>Total Expenses</small><strong>${shortMoney(tot)}</strong><span>${list.length} transactions · ${trendText}</span></section>
+  <button class="card report-stat budget-stat" data-a="budget-setup"><small>Monthly Budget</small><strong>${budget?shortMoney(budget):'Not set'}</strong><span class="mini-progress"><i style="width:${progress}%"></i></span></button>
+  <section class="card report-stat remaining-stat ${remaining!=null&&remaining<0?'over':''}"><small>Remaining</small><strong>${remainingText}</strong><span>${budget?remaining<0?'Over budget':`${Math.round(progress)}% used`:'Set a budget in More'}</span></section>
  </div>
+ ${spendingBreakdownCard(list)}
  ${reportChartCard()}
  <section class="card top-spending"><div class="section-heading"><h2>Top Spending</h2><span>${esc(new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'long'}))}</span></div>${ranked}</section>
  <div class="report-side-grid">${donutCard(categories,tot)}${insightsCard(list,tot)}</div>`;
@@ -304,13 +316,13 @@ function exList(){
  const qq=q.trim().toLowerCase();
  const list=monthExp(mk).filter(e=>(!fcat||e.cat===fcat)&&(!qq||(e.note+' '+cat(e.cat).name+' '+e.amt).toLowerCase().includes(qq)))
   .sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
- let h=`<h2>${list.length} expense${list.length===1?'':'s'} · ${money(sum(list))}</h2>`;
+ let h=`<h2>${list.length} expense${list.length===1?'':'s'} · ${shortMoney(sum(list))}</h2>`;
  if(!list.length)return h+(qq||fcat?empty('No matches found.','search'):empty('Nothing here yet.<br>Add your first expense with the + button.','list'));
  let last='';
  list.forEach((e,i)=>{
-  if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${dayLabel(e.date)}</span><span>${money(sum(list.filter(x=>x.date===e.date)))}</span></div>`}
+  if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${dayLabel(e.date)}</span><span>${shortMoney(sum(list.filter(x=>x.date===e.date)))}</span></div>`}
   const c=cat(e.cat);
-  h+=`<div class="row tap li" role="button" tabindex="0" data-a="ee" data-id="${esc(e.id)}" style="animation-delay:${Math.min(i,10)*30}ms">${catIc(c)}<div class="rb"><b>${esc(e.note||c.name)}</b><small>${esc(c.name)}</small></div><div class="amt">${money(e.amt)}</div><button class="del" data-a="dx" data-id="${esc(e.id)}" aria-label="Delete expense">${ic('trash')}</button></div>`;
+  h+=`<div class="row tap li" role="button" tabindex="0" data-a="ee" data-id="${esc(e.id)}" style="animation-delay:${Math.min(i,10)*30}ms">${catIc(c)}<div class="rb"><b>${esc(e.note||c.name)}</b><span class="expense-meta">${e.note?`<small>${esc(c.name)}</small>`:''}${spendingBadge(e)}</span></div><div class="amt">${shortMoney(e.amt)}</div><button class="del" data-a="dx" data-id="${esc(e.id)}" aria-label="Delete expense">${ic('trash')}</button></div>`;
  });
  return h;
 }
@@ -341,6 +353,12 @@ function manage(){
  <p class="note">Everything is stored privately on this device.</p></div>`;
 }
 
+function fitReportStats(){
+ document.querySelectorAll('.report-stat>strong,.report-stat>small').forEach(el=>{
+  el.style.fontSize='';
+  if(el.scrollWidth>el.clientWidth&&el.clientWidth>0)el.style.fontSize=`${parseFloat(getComputedStyle(el).fontSize)*(el.clientWidth-1)/el.scrollWidth}px`;
+ });
+}
 function render(){
  reportCache=null;
  const a=$('app'),list=monthExp(mk),tot=sum(list);
@@ -352,6 +370,7 @@ function render(){
  else h=`<header><h1>More</h1></header>`;
  h+=tab==='ov'?overview(list,tot):tab==='ex'?expenses():tab==='reports'?reports(list,tot):manage();
  a.innerHTML=h;
+ fitReportStats();
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
   const b=$('big');if(b)count(b,tot);
  }));
@@ -385,6 +404,7 @@ function openSheet(id){
  const initialDate=e?e.date:mk===today().slice(0,7)?today():mk+'-01';
  expenseCalendarMonth=initialDate.slice(0,7);
  selCat=e?e.cat:selCat&&S.cats.some(c=>c.id===selCat)?selCat:S.cats[0].id;
+ selectedSpendingType=e?spendingTypeFor(e,S.cats):cat(selCat).spendingType;
  $('sheet').innerHTML=`<div class="shtop"><h3 id="shh">${e?'Edit expense':'New expense'}</h3><button class="del" data-a="close" aria-label="Close">${ic('x')}</button></div>
  <div class="expense-step" data-step="0">
   <label class="amtw"><span>${esc(sym())}</span><input id="ea" type="text" inputmode="decimal" placeholder="0.00" aria-label="Amount" value="${e?e.amt:''}" readonly><span class="amt-cursor" aria-hidden="true">|</span></label>
@@ -397,6 +417,7 @@ function openSheet(id){
  <div class="expense-step" data-step="1" hidden>
   <button type="button" class="amount-context" data-a="expense-back"><strong id="amount-context-value">${esc(money(expenseAmount()))}</strong><span>· Edit</span></button>
   <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}" aria-pressed="${c.id===selCat}">${catIc(c)}${esc(c.name)}</button>`).join('')}</div>
+  <div class="spending-toggle" id="spending-toggle" role="group" aria-label="Spending type">${Object.entries(SPENDING_TYPES).map(([type,label])=>`<button type="button" data-a="spending-type" data-v="${type}" class="${type===selectedSpendingType?'on':''}" aria-pressed="${type===selectedSpendingType}">${label}</button>`).join('')}</div>
   <div class="step-actions"><button class="btn ghost back-btn" data-a="expense-back">Back</button><button class="btn" data-a="expense-next">Next</button></div>
  </div>
  <div class="expense-step" data-step="2" hidden>
@@ -423,11 +444,19 @@ const close=()=>{
 };
 
 function selectExpenseCategory(id){
+ if(id!==selCat)selectSpendingType(cat(id).spendingType);
  selCat=id;
  document.querySelectorAll('#chips .chip').forEach(c=>{
   const selected=c.dataset.id===id;c.classList.toggle('on',selected);c.setAttribute('aria-pressed',String(selected));
  });
  updateDateContext();
+}
+function selectSpendingType(type){
+ if(!validSpendingType(type)){toast('Choose a spending type');return}
+ selectedSpendingType=type;
+ document.querySelectorAll('#spending-toggle button').forEach(button=>{
+  const selected=button.dataset.v===type;button.classList.toggle('on',selected);button.setAttribute('aria-pressed',String(selected));
+ });
 }
 const expenseAmount=()=>Number.parseFloat($('ea')?.value||'')||0;
 function updateDateContext(){
@@ -486,7 +515,7 @@ function saveExp(){
  const amount=expenseAmount(),date=$('ed').value;
  if(!Number.isFinite(amount)||Math.round(amount*100)<=0){toast('Enter an amount greater than zero');$('ea').focus();return}
  if(!DATE_RE.test(date)){toast('Choose a date');$('ed').focus();return}
- const data={cat:selCat,amt:Math.round(amount*100)/100,note:$('en').value.trim(),date};
+ const data={cat:selCat,amt:Math.round(amount*100)/100,note:$('en').value.trim(),date,spendingType:selectedSpendingType};
  const e=editing&&S.exp.find(x=>x.id===editing);
  if(e)Object.assign(e,data);else S.exp.push({id:uid(),...data});
  save();buzz();close();mk=date.slice(0,7);render();toast(e?'Changes saved':'Expense saved');
@@ -522,7 +551,7 @@ function saveCat(){
   Object.assign(category,{name:n,icon:newIcon,color:newCol});editingCat=null;
   save();buzz();render();toast(n+' updated');return;
  }
- S.cats.push({id:'c'+uid(),name:n,icon:newIcon,color:newCol});save();buzz();render();toast(n+' added');
+ S.cats.push({id:'c'+uid(),name:n,icon:newIcon,color:newCol,spendingType:defaultSpendingType(n)});save();buzz();render();toast(n+' added');
 }
 function download(name,text,type){
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;
@@ -532,7 +561,7 @@ function download(name,text,type){
 const cell=v=>{let s=String(v);if(/^[=+\-@]/.test(s))s="'"+s;return'"'+s.replace(/"/g,'""')+'"'};
 function exportCsv(){
  if(!S.exp.length){toast('No expenses to export');return}
- const rows=[['Date','Category','Note','Amount','Currency'],...[...S.exp].sort((a,b)=>a.date.localeCompare(b.date)).map(e=>[e.date,cat(e.cat).name,e.note,e.amt.toFixed(2),S.currency])];
+ const rows=[['Date','Category','Note','Amount','Currency','Spending Type'],...[...S.exp].sort((a,b)=>a.date.localeCompare(b.date)).map(e=>[e.date,cat(e.cat).name,e.note,e.amt.toFixed(2),S.currency,SPENDING_TYPES[spendingTypeFor(e,S.cats)]])];
  download(`pocketbook-${today()}.csv`,rows.map(r=>r.map(cell).join(',')).join('\n'),'text/csv');toast('CSV exported');
 }
 function restore(){
@@ -588,6 +617,8 @@ document.addEventListener('click',ev=>{
  else if(a==='ee')openSheet(id);
  else if(a==='close')close();
  else if(a==='sc')selectExpenseCategory(id);
+ else if(a==='spending-type')selectSpendingType(v);
+ else if(a==='report-mode'&&['cumulative','daily'].includes(v)){reportMode=v;render()}
  else if(a==='calc'){
   if(b.dataset.key==='back'&&backspaceHoldTriggered)backspaceHoldTriggered=false;
   else enterCalculatorKey(b.dataset.key);
@@ -614,7 +645,6 @@ document.addEventListener('click',ev=>{
 document.addEventListener('change',ev=>{
  const t=ev.target;
  if(t.id==='cur'){S.currency=t.value;setFmt();save();render();toast('Currency: '+S.currency)}
- else if(t.id==='report-range'&&['week','month','last3','last6','year'].includes(t.value)){reportRange=t.value;render()}
  else if(t.id==='monthly-budget'){
   if(!t.value.trim()){delete S.budget;save();render();toast('Monthly budget removed')}
   else{
@@ -646,7 +676,7 @@ document.addEventListener('keydown',ev=>{
  if(plot&&['ArrowLeft','ArrowRight','Escape'].includes(ev.key)){
   ev.preventDefault();
   if(ev.key==='Escape')hideReportPoint(plot);
-  else{const current=Number(plot.dataset.activeIndex),index=Number.isFinite(current)?current+(ev.key==='ArrowRight'?1:-1):(ev.key==='ArrowRight'?0:reportModel().points.length-1);showReportPoint(plot,index)}
+  else{const current=Number(plot.dataset.activeIndex),index=Number.isFinite(current)?current+(ev.key==='ArrowRight'?1:-1):(ev.key==='ArrowRight'?0:reportModel().visiblePoints.length-1);showReportPoint(plot,index)}
   return;
  }
  if($('ov').classList.contains('open')){
@@ -663,6 +693,8 @@ $('app').addEventListener('touchend',e=>{
  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
  if(Math.abs(dx)>70&&Math.abs(dy)<40&&(dx>0||mk<latestMonth())){mk=shift(mk,dx<0?1:-1);render()}
 },{passive:true});
+window.addEventListener('resize',fitReportStats);
+document.fonts?.ready.then(fitReportStats);
 render();
 if('serviceWorker' in navigator){
  navigator.serviceWorker.register('./service-worker.js').catch(error=>console.error('Service worker registration failed:',error));
