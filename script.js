@@ -94,12 +94,12 @@ const setFmt=()=>{
  axisFmt=new Intl.NumberFormat('en-US',{style:'currency',currency:S.currency,notation:'compact',maximumFractionDigits:2,minimumFractionDigits:0});
 };
 setFmt();
-const money=n=>fmt.format(n);
 const shortCurrency=parts=>parts.map(p=>p.type==='currency'&&p.value.includes('$')?'$':p.value).join('');
 const shortMoney=n=>shortCurrency(fmt.formatToParts(n));
+const money=shortMoney;
 const axisMoney=n=>shortCurrency(axisFmt.formatToParts(n));
 const heroMoney=n=>fmt.formatToParts(n).map(p=>p.type==='currency'?`<span class="money-prefix">${esc(shortCurrency([p]))}</span>`:p.type==='decimal'||p.type==='fraction'?`<span class="money-cents">${esc(p.value)}</span>`:esc(p.value)).join('');
-const sym=()=>fmt.formatToParts(0).find(p=>p.type==='currency').value;
+const sym=()=>shortCurrency([fmt.formatToParts(0).find(p=>p.type==='currency')]);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const today=()=>iso(new Date());
@@ -110,6 +110,7 @@ let tab='ov',mk=today().slice(0,7),selCat=null,newIcon='tag',newCol=COL[0],editi
 let selectedSpendingType='necessary';
 let reportMode='cumulative';
 let heroExpanded=false;
+let spendingFilter='all',categoryEditorOpen=false,budgetModalOpen=false,budgetTrigger=null;
 let monthPickerYear=Number(mk.slice(0,4)),monthPickerOpen=false,monthPickerTriggerId='';
 const categoryColor=c=>{const legacy=LEGACY_COLORS.get(c.name);return legacy&&c.color.toUpperCase()===legacy[0]?legacy[1]:c.color};
 const cat=id=>{const c=S.cats.find(c=>c.id===id)||{id,name:'Other',icon:'tag',color:'#94A3B8',spendingType:'discretionary'};return {...c,color:categoryColor(c)}};
@@ -132,7 +133,7 @@ function dayLabel(s){
 }
 function toast(m,undo){
  const t=$('toast');
- t.innerHTML=`<span>${esc(m)}</span>${undo?'<button data-a="undo">Undo</button>':''}`;
+ t.innerHTML=`<span>${esc(m)}${undo?' ·':''}</span>${undo?'<button data-a="undo">Undo</button>':''}`;
  undoFn=undo||null;
  t.classList.add('show');clearTimeout(t._h);
  t._h=setTimeout(()=>{t.classList.remove('show');undoFn=null},undo?4500:1800);
@@ -233,7 +234,7 @@ function recentExpenses(list){
  if(!rows.length)return empty('No expenses yet this month.<br>Tap + to add your first one.','list');
  return`<div class="home-expenses">${rows.map(expense=>{
   const category=cat(expense.cat),date=new Date(expense.date+'T12:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  return`<button class="home-expense" data-a="ee" data-id="${esc(expense.id)}">${catBadge(category)}<span class="home-expense-main"><b>${esc(expense.note||category.name)}</b><span class="home-expense-meta"><small>${date}</small>${spendingBadge(expense)}</span></span><span class="home-expense-amount"><strong>${money(expense.amt)}</strong><small>${esc(S.currency)}</small></span></button>`;
+  return`<button class="home-expense" data-a="ee" data-id="${esc(expense.id)}">${catBadge(category)}<span class="home-expense-main"><b>${esc(expense.note||category.name)}</b><span class="home-expense-meta"><small>${date}</small>${spendingBadge(expense)}</span></span><span class="home-expense-amount"><strong>${money(expense.amt)}</strong></span></button>`;
  }).join('')}</div>`;
 }
 
@@ -329,10 +330,10 @@ function reports(list,tot){
 
 function exList(){
  const qq=q.trim().toLowerCase();
- const list=monthExp(mk).filter(e=>(!fcat||e.cat===fcat)&&(!qq||(e.note+' '+cat(e.cat).name+' '+e.amt).toLowerCase().includes(qq)))
+ const list=monthExp(mk).filter(e=>(!fcat||e.cat===fcat)&&(spendingFilter==='all'||spendingTypeFor(e,S.cats)===spendingFilter)&&(!qq||(e.note+' '+cat(e.cat).name+' '+e.amt).toLowerCase().includes(qq)))
   .sort((a,b)=>b.date.localeCompare(a.date)||b.id.localeCompare(a.id));
  let h=`<h2>${list.length} expense${list.length===1?'':'s'} · ${shortMoney(sum(list))}</h2>`;
- if(!list.length)return h+(qq||fcat?empty('No matches found.','search'):empty('Nothing here yet.<br>Add your first expense with the + button.','list'));
+ if(!list.length)return h+(qq||fcat||spendingFilter!=='all'?empty('No matches found.','search'):empty('Nothing here yet.<br>Add your first expense with the + button.','list'));
  let last='';
  list.forEach((e,i)=>{
   if(e.date!==last){last=e.date;h+=`<div class="dh"><span>${dayLabel(e.date)}</span><span>${shortMoney(sum(list.filter(x=>x.date===e.date)))}</span></div>`}
@@ -345,21 +346,25 @@ function exList(){
 function expenses(){
  const fc=fcat&&cat(fcat);
  return`<div class="card tv"><div class="search">${ic('search')}<input id="q" type="search" placeholder="Search notes, categories, amounts" value="${esc(q)}" aria-label="Search expenses"></div>
+ <div class="filter-chips" role="group" aria-label="Filter by spending type">${[['all','All'],...Object.entries(SPENDING_TYPES)].map(([value,label])=>`<button type="button" data-a="filter-spending" data-v="${value}" class="${spendingFilter===value?'on':''}" aria-pressed="${spendingFilter===value}">${label}</button>`).join('')}</div>
  ${fc?`<button class="fchip" data-a="cf" aria-label="Clear category filter">${catIc(fc)}${esc(fc.name)}${ic('x')}</button>`:''}
  <div id="xl">${exList()}</div></div>`;
 }
 
+function budgetInput(id){
+ return`<label class="budget-input"><span>${esc(sym())}</span><input id="${id}" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Not set" value="${S.budget>0?esc(S.budget):''}" aria-label="Monthly budget"></label>`;
+}
 function manage(){
  const categoryToEdit=S.cats.find(c=>c.id===editingCat);
  if(editingCat&&!categoryToEdit)editingCat=null;
  ensureNewCategoryChoices();
  const spent={};monthExp(today().slice(0,7)).forEach(e=>spent[e.cat]=(spent[e.cat]||0)+e.amt);
- return`<div class="card tv" id="categories-card"><h2>Your categories · this month</h2>${S.cats.length?`<div class="grid">${S.cats.map((c,i)=>`<div class="cc li" role="button" tabindex="0" data-a="fc" data-id="${esc(c.id)}" style="animation-delay:${i*30}ms">${catIc(c)}<span>${esc(c.name)}<small>${money(spent[c.id]||0)}</small></span><button class="del edit-category" data-a="ec" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">${ic('edit')}</button><button class="del" data-a="dc" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">${ic('trash')}</button></div>`).join('')}</div>`:empty('No categories yet.','grid')}</div>
- <div class="card tv"><h2>${categoryToEdit?'Edit category':'Add a category'}</h2><input id="cn" placeholder="Name, e.g. Pets" maxlength="24" aria-label="Category name" value="${categoryToEdit?esc(categoryToEdit.name):''}">
+ return`<div class="card tv" id="categories-card"><div class="category-heading"><h2>Your categories · this month</h2><button class="add-category" data-a="add-category" aria-expanded="${categoryEditorOpen}" aria-controls="category-editor">+ Add category</button></div>${S.cats.length?`<div class="grid">${S.cats.map((c,i)=>`<div class="cc li" role="button" tabindex="0" data-a="fc" data-id="${esc(c.id)}" style="animation-delay:${i*30}ms">${catIc(c)}<span>${esc(c.name)}<small>${money(spent[c.id]||0)}</small></span><button class="del edit-category" data-a="ec" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">${ic('edit')}</button><button class="del" data-a="dc" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">${ic('trash')}</button></div>`).join('')}</div>`:empty('No categories yet.','grid')}
+ ${categoryEditorOpen?`<div class="category-editor" id="category-editor"><h2>${categoryToEdit?'Edit category':'Add a category'}</h2><input id="cn" placeholder="Name, e.g. Pets" maxlength="24" aria-label="Category name" value="${categoryToEdit?esc(categoryToEdit.name):''}">
  <div class="pick" id="pi">${PICK.map(p=>`<button data-a="pi" data-v="${p}" class="${p===newIcon?'on':''}" aria-label="${p} icon" ${iconAvailable(p)?'':'disabled'}>${ic(p)}</button>`).join('')}</div>
  <div class="pick sw" id="pc">${COL.map(c=>`<button data-a="pcol" data-v="${c}" style="background:${c}" class="${c===newCol?'on':''}" aria-label="Color ${c}" ${colorAvailable(c)?'':'disabled'}></button>`).join('')}</div>
- <button class="btn" data-a="ac" ${newIcon&&newCol?'':'disabled'}>${categoryToEdit?'Save category':'Add category'}</button>${categoryToEdit?'<button class="btn ghost" data-a="cancel-edit-cat">Cancel</button>':''}</div>
- <div class="card tv" id="monthly-budget-card"><h2>Monthly budget</h2><p class="note budget-note">Track a monthly spending target across Home and Reports.</p><label class="budget-input"><span>${esc(S.currency)}</span><input id="monthly-budget" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Not set" value="${S.budget>0?esc(S.budget):''}" aria-label="Monthly budget"></label><small class="budget-help">Leave blank to remove the budget. It is not shared or synced.</small></div>
+ <button class="btn" data-a="ac" ${newIcon&&newCol?'':'disabled'}>${categoryToEdit?'Save category':'Add category'}</button><button class="btn ghost" data-a="cancel-edit-cat">Cancel</button></div>`:'<div id="category-editor" hidden></div>'}</div>
+ <div class="card tv" id="monthly-budget-card"><h2>Monthly budget</h2><p class="note budget-note">Track a monthly spending target across Home and Reports.</p>${budgetInput('monthly-budget')}<small class="budget-help">Leave blank to remove the budget. It is not shared or synced.</small></div>
  <div class="card tv"><h2>Preferences</h2>
  <label class="set"><span>Currency</span><select id="cur">${CUR.map(c=>`<option ${c===S.currency?'selected':''}>${c}</option>`).join('')}</select></label></div>
  <div class="card tv"><h2>Your data</h2><div class="acts">
@@ -374,14 +379,18 @@ function fitReportStats(){
   if(el.scrollWidth>el.clientWidth&&el.clientWidth>0)el.style.fontSize=`${parseFloat(getComputedStyle(el).fontSize)*(el.clientWidth-1)/el.scrollWidth}px`;
  });
 }
+function monthSwitcher(){
+ const label=new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'short',year:'numeric'});
+ return`<div class="mon"><button type="button" data-a="pm" aria-label="Previous month" ${mk<='2000-01'?'disabled':''}>${ic('left')}</button><button type="button" class="ml" id="month-switcher" data-a="month-picker" aria-label="Select month, ${esc(mlabel(mk))}" aria-haspopup="dialog">${esc(label)}</button><button type="button" data-a="nm" aria-label="Next month" ${mk>=latestMonth()?'disabled':''}>${ic('right')}</button></div>`;
+}
 function render(){
  reportCache=null;
  const a=$('app'),list=monthExp(mk),tot=sum(list);
  const tabs=$('tabs');
  let h;
- if(tab==='ov')h=`<header class="home-header"><div><h1>Pocketbook</h1><p>${esc(mlabel(mk))}</p></div><button type="button" class="icon-button" id="home-month" data-a="month-picker" aria-label="Select month" aria-haspopup="dialog">${ic('calendar')}</button></header>`;
- else if(tab==='ex')h=`<header class="page-header"><h1>Expenses</h1><div class="mon"><button data-a="pm" aria-label="Previous month">${ic('left')}</button><button class="ml" data-a="tm" title="Jump to this month" aria-label="${mlabel(mk)}">${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'short',year:'numeric'})}</button><button data-a="nm" aria-label="Next month" ${mk>=latestMonth()?'disabled':''}>${ic('right')}</button></div></header>`;
- else if(tab==='reports')h=`<header class="report-header"><h1>Expenses</h1><button type="button" class="period-picker" id="report-month" data-a="month-picker" aria-label="Select month" aria-haspopup="dialog"><span>${new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'short',year:'numeric'})} <b>▾</b></span></button></header>`;
+ if(tab==='ov')h=`<header class="home-header"><h1>Pocketbook</h1>${monthSwitcher()}</header>`;
+ else if(tab==='ex')h=`<header class="page-header"><h1>Expenses</h1>${monthSwitcher()}</header>`;
+ else if(tab==='reports')h=`<header class="report-header"><h1>Reports</h1>${monthSwitcher()}</header>`;
  else h=`<header><h1>More</h1></header>`;
  h+=tab==='ov'?overview(list,tot):tab==='ex'?expenses():tab==='reports'?reports(list,tot):manage();
  a.innerHTML=h;
@@ -405,10 +414,26 @@ function renderMonthPicker(){
 }
 function openMonthPicker(){
  monthPickerYear=Number(mk.slice(0,4));
- monthPickerTriggerId=tab==='ov'?'home-month':'report-month';
+ monthPickerTriggerId='month-switcher';
  monthPickerOpen=true;
  renderMonthPicker();
- $('ov').classList.add('open');
+ $('ov').inert=false;$('ov').classList.add('open');
+ requestAnimationFrame(()=>$('sheet').querySelector('.month-choice.on')?.focus());
+}
+
+function openBudgetModal(trigger){
+ budgetModalOpen=true;budgetTrigger=trigger;
+ $('sheet').innerHTML=`<div class="shtop"><h3 id="shh">Monthly budget</h3><button class="del" data-a="close" aria-label="Close">${ic('x')}</button></div><p class="note budget-note">Set a monthly spending target, or leave blank to remove it.</p>${budgetInput('budget-modal-input')}<button class="btn budget-save" data-a="save-budget">Save budget</button>`;
+ $('ov').inert=false;$('ov').classList.add('open');
+ requestAnimationFrame(()=>$('budget-modal-input')?.focus());
+}
+function saveBudget(input){
+ if(input.validity.badInput){toast('Enter a valid budget');input.focus();return false}
+ const value=input.value.trim();
+ if(!value){delete S.budget;save();toast('Monthly budget removed');return true}
+ const amount=Number(value);
+ if(!Number.isFinite(amount)||Math.round(amount*100)<=0){toast('Enter a budget greater than zero');input.focus();return false}
+ S.budget=Math.round(amount*100)/100;save();toast('Monthly budget updated');return true;
 }
 
 function openSheet(id){
@@ -423,7 +448,7 @@ function openSheet(id){
  $('sheet').innerHTML=`<div class="shtop"><h3 id="shh">${e?'Edit expense':'New expense'}</h3><button class="del" data-a="close" aria-label="Close">${ic('x')}</button></div>
  <div class="expense-step" data-step="0">
   <label class="amtw"><span>${esc(sym())}</span><input id="ea" type="text" inputmode="decimal" placeholder="0.00" aria-label="Amount" value="${e?e.amt:''}" readonly><span class="amt-cursor" aria-hidden="true">|</span></label>
-  <div class="quick-amounts" aria-label="Quick add amount">${[5,10,20,50].map(n=>`<button type="button" data-a="quick-amount" data-amount="${n}">+$${n}</button>`).join('')}</div>
+  <div class="quick-amounts" aria-label="Quick add amount">${[5,10,20,50].map(n=>`<button type="button" data-a="quick-amount" data-amount="${n}">+${esc(axisMoney(n))}</button>`).join('')}</div>
   <div class="calc" aria-label="Amount calculator">
    ${['1','2','3','4','5','6','7','8','9','.','0','back'].map(k=>k==='back'?`<button type="button" data-a="calc" data-key="back" aria-label="Delete digit">${ic('backspace')}</button>`:`<button type="button" data-a="calc" data-key="${k}">${k}</button>`).join('')}
   </div>
@@ -446,16 +471,18 @@ function openSheet(id){
   <button class="btn" id="save-exp" data-a="se" style="margin-top:10px">${e?'Save changes':'Save expense'}</button>
   <div class="step-actions"><button class="btn ghost back-btn" data-a="expense-back">Back</button>${e?`<button class="btn ghost" data-a="dx" data-id="${esc(e.id)}">Delete expense</button>`:''}</div>
  </div>`;
- $('ov').classList.add('open');
+ $('ov').inert=false;$('ov').classList.add('open');
  updateExpenseForm();
  renderExpenseCalendar();
  showExpenseStep(0);
 }
 const close=()=>{
- $('ov').classList.remove('open');editing=null;
+ $('ov').classList.remove('open');$('ov').inert=true;editing=null;
  const triggerId=monthPickerOpen?monthPickerTriggerId:null;
  monthPickerOpen=false;monthPickerTriggerId='';
  if(triggerId)requestAnimationFrame(()=>$(triggerId)?.focus());
+ const trigger=budgetTrigger;budgetModalOpen=false;budgetTrigger=null;
+ if(trigger)requestAnimationFrame(()=>(trigger.isConnected?trigger:document.querySelector('[data-a="budget-setup"]'))?.focus());
 };
 
 function selectExpenseCategory(id){
@@ -546,13 +573,13 @@ function delCat(id){
  const n=S.exp.filter(e=>e.cat===id).length;
  if(n&&!confirm(`${S.cats[i].name} has ${n} expense${n>1?'s':''}. They'll show as “Other”. Delete anyway?`))return;
  const [item]=S.cats.splice(i,1);
- if(editingCat===id)editingCat=null;
+ if(editingCat===id){editingCat=null;categoryEditorOpen=false}
  save();buzz();render();
  toast(item.name+' deleted',()=>S.cats.splice(i,0,item));
 }
 function editCat(id){
  const category=S.cats.find(c=>c.id===id);if(!category)return;
- editingCat=id;newIcon=category.icon;newCol=categoryColor(category);render();
+ editingCat=id;categoryEditorOpen=true;newIcon=category.icon;newCol=categoryColor(category);render();
  $('cn').focus({preventScroll:true});
  $('cn').scrollIntoView({behavior:'smooth',block:'center'});
 }
@@ -563,10 +590,10 @@ function saveCat(){
  if(!newIcon||!newCol||!iconAvailable(newIcon)||!colorAvailable(newCol)){toast('Choose an unused icon and color');return}
  const category=editingCat&&S.cats.find(c=>c.id===editingCat);
  if(category){
-  Object.assign(category,{name:n,icon:newIcon,color:newCol});editingCat=null;
+  Object.assign(category,{name:n,icon:newIcon,color:newCol});editingCat=null;categoryEditorOpen=false;
   save();buzz();render();toast(n+' updated');return;
  }
- S.cats.push({id:'c'+uid(),name:n,icon:newIcon,color:newCol,spendingType:defaultSpendingType(n)});save();buzz();render();toast(n+' added');
+ S.cats.push({id:'c'+uid(),name:n,icon:newIcon,color:newCol,spendingType:defaultSpendingType(n)});categoryEditorOpen=false;save();buzz();render();toast(n+' added');
 }
 function download(name,text,type){
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;
@@ -615,20 +642,28 @@ document.addEventListener('click',ev=>{
  const b=ev.target.closest('[data-a]');if(!b)return;
  const a=b.dataset.a,id=b.dataset.id,v=b.dataset.v;
  if(backspaceHoldTriggered&&!(a==='calc'&&b.dataset.key==='back'))backspaceHoldTriggered=false;
- if(a==='tab'){tab=v;fcat=null;q='';render();scrollTo({top:0})}
+ if(a==='tab'){tab=v;fcat=null;q='';spendingFilter='all';render();scrollTo({top:0})}
  else if(a==='hero-toggle')toggleHeroBreakdown(b);
  else if(a==='add')openSheet();
  else if(a==='month-picker')openMonthPicker();
  else if(a==='mp-year'){monthPickerYear+=Number(v);renderMonthPicker()}
  else if(a==='mp-select'&&/^\d{4}-\d{2}$/.test(v)&&v>='2000-01'&&v<=latestMonth()){mk=v;close();render();scrollTo({top:0})}
- else if(a==='budget-setup'){tab='more';render();requestAnimationFrame(()=>$('monthly-budget-card')?.scrollIntoView({behavior:'smooth',block:'center'}))}
+ else if(a==='budget-setup')openBudgetModal(b);
+ else if(a==='save-budget'){if(saveBudget($('budget-modal-input'))){close();render()}}
  else if(a==='category-settings'){tab='more';render();requestAnimationFrame(()=>$('categories-card')?.scrollIntoView({behavior:'smooth',block:'start'}))}
- else if(a==='pm'){mk=shift(mk,-1);render()}
+ else if(a==='pm'&&mk>'2000-01'){mk=shift(mk,-1);render()}
  else if(a==='nm'&&mk<latestMonth()){mk=shift(mk,1);render()}
  else if(a==='tm'){mk=today().slice(0,7);render()}
- else if(a==='all-recent'){fcat=null;q='';tab='ex';render();scrollTo({top:0})}
- else if(a==='fc'){fcat=id;q='';tab='ex';render();scrollTo({top:0})}
+ else if(a==='all-recent'){fcat=null;q='';spendingFilter='all';tab='ex';render();scrollTo({top:0})}
+ else if(a==='fc'){fcat=id;q='';spendingFilter='all';tab='ex';render();scrollTo({top:0})}
+ else if(a==='filter-spending'&&(v==='all'||validSpendingType(v))){
+  spendingFilter=v;document.querySelectorAll('.filter-chips button').forEach(button=>{const selected=button.dataset.v===v;button.classList.toggle('on',selected);button.setAttribute('aria-pressed',String(selected))});$('xl').innerHTML=exList();
+ }
  else if(a==='ec')editCat(id);
+ else if(a==='add-category'){
+  const wasEditing=!!editingCat;editingCat=null;categoryEditorOpen=wasEditing||!categoryEditorOpen;render();
+  if(categoryEditorOpen)$('cn').focus({preventScroll:true});
+ }
  else if(a==='cf'){fcat=null;render()}
  else if(a==='ee')openSheet(id);
  else if(a==='close')close();
@@ -651,7 +686,7 @@ document.addEventListener('click',ev=>{
  else if(a==='pi'&&iconAvailable(v)){newIcon=v;document.querySelectorAll('#pi button').forEach(x=>x.classList.toggle('on',x===b))}
  else if(a==='pcol'&&colorAvailable(v)){newCol=v;document.querySelectorAll('#pc button').forEach(x=>x.classList.toggle('on',x===b))}
  else if(a==='ac')saveCat();
- else if(a==='cancel-edit-cat'){editingCat=null;render()}
+ else if(a==='cancel-edit-cat'){editingCat=null;categoryEditorOpen=false;render();document.querySelector('[data-a="add-category"]')?.focus()}
  else if(a==='undo'&&undoFn){undoFn();undoFn=null;save();render();toast('Restored')}
  else if(a==='csv')exportCsv();
  else if(a==='bk'){download(`pocketbook-backup-${today()}.json`,JSON.stringify(S,null,1),'application/json');toast('Backup saved')}
@@ -662,12 +697,7 @@ document.addEventListener('change',ev=>{
  const t=ev.target;
  if(t.id==='cur'){S.currency=t.value;setFmt();save();render();toast('Currency: '+S.currency)}
  else if(t.id==='monthly-budget'){
-  if(!t.value.trim()){delete S.budget;save();render();toast('Monthly budget removed')}
-  else{
-   const amount=Number(t.value);
-   if(!Number.isFinite(amount)||amount<=0){t.value=S.budget>0?S.budget:'';toast('Enter a budget greater than zero');return}
-   S.budget=Math.round(amount*100)/100;save();render();toast('Monthly budget updated');
-  }
+  if(saveBudget(t))render();
  }
 });
 document.addEventListener('input',ev=>{
@@ -696,8 +726,9 @@ document.addEventListener('keydown',ev=>{
   return;
  }
  if($('ov').classList.contains('open')){
-  if(ev.key==='Escape'){const wasMonthPicker=monthPickerOpen;close();if(!wasMonthPicker)document.querySelector('.nav-add')?.focus();return}
-  if(ev.key==='Enter'&&t.tagName==='INPUT'){ev.preventDefault();if(expenseStep<3)showExpenseStep(expenseStep+1);else saveExp();return}
+  if(ev.key==='Escape'){const wasPickerOrBudget=monthPickerOpen||budgetModalOpen;close();if(!wasPickerOrBudget)document.querySelector('.nav-add')?.focus();return}
+  if(ev.key==='Enter'&&budgetModalOpen&&t.id==='budget-modal-input'){ev.preventDefault();if(saveBudget(t)){close();render()}return}
+  if(ev.key==='Enter'&&!monthPickerOpen&&!budgetModalOpen&&t.tagName==='INPUT'){ev.preventDefault();if(expenseStep<3)showExpenseStep(expenseStep+1);else saveExp();return}
  }
  if(ev.key==='Enter'&&t.id==='cn'){saveCat();return}
  if((ev.key==='Enter'||ev.key===' ')&&t.matches('[role=button][data-a]')){ev.preventDefault();t.dispatchEvent(new MouseEvent('click',{bubbles:true}))}
@@ -707,7 +738,7 @@ $('app').addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[
 $('app').addEventListener('touchend',e=>{
  if(tab==='more')return;
  const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
- if(Math.abs(dx)>70&&Math.abs(dy)<40&&(dx>0||mk<latestMonth())){mk=shift(mk,dx<0?1:-1);render()}
+ if(Math.abs(dx)>70&&Math.abs(dy)<40&&(dx>0?mk>'2000-01':mk<latestMonth())){mk=shift(mk,dx<0?1:-1);render()}
 },{passive:true});
 window.addEventListener('resize',fitReportStats);
 document.fonts?.ready.then(fitReportStats);

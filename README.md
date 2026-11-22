@@ -17,15 +17,20 @@ Category renames and deletions do not reclassify saved expenses.
 
 Home shows a subtle spending-type badge beside each recent expense's date.
 Tap the Home spending banner to expand or collapse the selected month's split;
-the budget setup button remains a separate action. The Expenses analytics
-screen (Reports tab) also shows the selected month's split.
+the budget setup button remains a separate action. The Reports screen also
+shows the selected month's split.
+On Expenses, use the All, Necessary, and Discretionary chips alongside search
+and category filters. Deleted expenses can be restored using Undo.
 Older expenses and backups receive category defaults when loaded. Spending
 types are included in JSON backups and the CSV export's Spending Type column.
 
 ## Spending analytics
 
-The Home spending banner and Expenses screens use compact currency symbols
-(for example, `$2,161.60` for CAD). KPI cards have single-line titles and
+All screens use compact currency symbols (for example, `$2,161.60` for CAD).
+Home, Expenses, and Reports share month arrows and a month picker. Set or remove
+the monthly budget in More or using the quick budget sheet on Home and Reports.
+In More, use Add category to expand the category editor; existing categories
+can also be edited there. KPI cards have single-line titles and
 amounts that resize to fit narrow screens. The three KPI cards share a height;
 the budget and unset remaining cards link to budget setup. Other currency
 preferences are preserved. Spending by Category combines a donut with ranked,

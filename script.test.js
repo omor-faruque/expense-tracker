@@ -16,7 +16,7 @@ function app(now = '2026-11-21T12:00:00') {
    querySelectorAll: () => [],
    addEventListener() {}
   },
-  localStorage: {getItem: () => null},
+  localStorage: {getItem: () => null, setItem() {}},
   matchMedia: () => ({matches: true}),
   navigator: {},
   window: {addEventListener() {}},
@@ -150,6 +150,78 @@ test('recent rows show type and date without duplicate category; CSV includes sa
  run("let exported;download=(name,text)=>{exported=text};toast=()=>{};exportCsv()");
  assert.match(run('exported'), /"Currency","Spending Type"/);
  assert.match(run('exported'), /"CAD","Necessary"/);
+});
+
+test('Reports and Expenses tabs have distinct matching headings', () => {
+ const run = app();
+ run("tab='reports';render()");
+ assert.match(run("document.getElementById('app').innerHTML"), /<h1>Reports<\/h1>/);
+ run("tab='ex';render()");
+ assert.match(run("document.getElementById('app').innerHTML"), /<h1>Expenses<\/h1>/);
+});
+
+test('all screens use compact currency symbols and the same month controls', () => {
+ const run = app();
+ run("mk='2026-11';S.exp=[{id:'1',cat:'c0',amt:50,date:'2026-11-20',note:''}]");
+ assert.match(run('recentExpenses(S.exp)'), /<strong>\$50\.00<\/strong>/);
+ assert.doesNotMatch(run('recentExpenses(S.exp)'), /CA\$|>CAD</);
+ assert.doesNotMatch(run('manage()'), /CA\$/);
+ assert.equal(run('sym()'), '$');
+ for (const tab of ['ov', 'ex', 'reports']) {
+  run(`tab='${tab}';render()`);
+  const html = run("document.getElementById('app').innerHTML");
+  assert.match(html, /data-a="pm" aria-label="Previous month"/);
+  assert.match(html, /data-a="nm" aria-label="Next month"/);
+  assert.match(html, /data-a="month-picker".*Nov 2026/);
+ }
+ run("S.currency='EUR';setFmt()");
+ assert.equal(run('money(50)'), '€50.00');
+ assert.equal(run('sym()'), '€');
+});
+
+test('spending type chips combine with category and search filters', () => {
+ const run = app();
+ run(`mk='2026-11';S.exp=[
+  {id:'1',cat:'c0',amt:50,date:'2026-11-20',note:'Market',spendingType:'necessary'},
+  {id:'2',cat:'c0',amt:20,date:'2026-11-20',note:'Treat',spendingType:'discretionary'},
+  {id:'3',cat:'c6',amt:10,date:'2026-11-20',note:'Lunch',spendingType:'discretionary'}
+ ]`);
+ assert.match(run('expenses()'), /Filter by spending type/);
+ run("spendingFilter='discretionary';fcat='c0'");
+ assert.match(run('exList()'), /1 expense · \$20\.00/);
+ assert.match(run('exList()'), /Treat/);
+ assert.doesNotMatch(run('exList()'), /Market|Lunch/);
+ run("q='market'");
+ assert.match(run('exList()'), /No matches found/);
+});
+
+test('category editor is collapsed by default and supports editing', () => {
+ const run = app();
+ assert.match(run('manage()'), /aria-expanded="false"/);
+ assert.doesNotMatch(run('manage()'), /id="pi"/);
+ run("categoryEditorOpen=true;editingCat='c0';newIcon=S.cats[0].icon;newCol=S.cats[0].color");
+ const html = run('manage()');
+ assert.match(html, /aria-expanded="true"/);
+ assert.match(html, /Edit category/);
+ assert.match(html, /value="Groceries"/);
+ assert.match(html, /Save category/);
+});
+
+test('budget validation updates, rejects invalid values, and removes budgets', () => {
+ const run = app();
+ run("toast=()=>{};let input={validity:{badInput:false},value:'50.25',focus(){this.focused=true}}");
+ assert.equal(run('saveBudget(input)'), true);
+ assert.equal(run('S.budget'), 50.25);
+ run("input.value='0.001'");
+ assert.equal(run('saveBudget(input)'), false);
+ assert.equal(run('S.budget'), 50.25);
+ assert.equal(run('input.focused'), true);
+ run("input.value='';input.validity.badInput=true");
+ assert.equal(run('saveBudget(input)'), false);
+ assert.equal(run('S.budget'), 50.25);
+ run("input.validity.badInput=false");
+ assert.equal(run('saveBudget(input)'), true);
+ assert.equal(run("'budget' in S"), false);
 });
 
 test('all Expenses cards use compact dollar symbols without changing other currency preferences', () => {
