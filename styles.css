@@ -99,7 +99,7 @@ h1{font-size:1.5rem;font-weight:800;margin:0;letter-spacing:-.02em}
 .period-picker{display:inline-flex;align-items:center;min-height:38px;padding:0 13px;border:1px solid var(--bd);border-radius:12px;background:var(--sf);color:var(--ink);font-size:.85rem;font-weight:700;box-shadow:0 2px 8px rgba(15,23,42,.04);cursor:pointer}
 .period-picker:hover,.icon-button:hover{background:var(--sf2)}
 .period-picker b{margin-left:3px;color:var(--mu);font-size:.74rem}
-.home-header{align-items:center;margin-bottom:16px}
+.home-header{align-items:center;margin-bottom:28px}
 .home-header p{margin:4px 0 0;color:var(--mu);font-size:.76rem;font-weight:600}
 .icon-button{position:relative;display:grid;place-items:center;width:44px;height:44px;overflow:hidden;border:1px solid var(--bd);border-radius:15px;background:var(--sf);color:var(--ink);box-shadow:0 2px 8px rgba(15,23,42,.045)}
 .icon-button svg.i{width:20px;height:20px}
