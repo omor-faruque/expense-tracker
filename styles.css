@@ -257,6 +257,8 @@ input:focus{outline:0;border-color:var(--ac)}
 .toast{display:flex;align-items:center;gap:14px;white-space:nowrap;position:fixed;top:calc(14px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,-90px);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:99px;font-weight:600;font-size:.9rem;z-index:20;transition:transform .4s cubic-bezier(.3,1.4,.5,1)}
 .toast.show{transform:translate(-50%,0)}
 .tv{animation:pop .45s ease both}
+/* A retained animation transform prevents Chrome from blurring these backdrops. */
+.hero-stage.tv,#hero-glass-card.tv{animation-fill-mode:backwards}
 /* --- enhancements --- */
 .row.tap{cursor:pointer;border-radius:16px;margin:0 -8px;padding:10px 8px;transition:background .2s}
 .row.tap:hover{background:var(--sf2)}
