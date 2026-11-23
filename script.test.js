@@ -122,6 +122,21 @@ test('home hero breakdown follows the selected month and uses compact currency',
  assert.doesNotMatch(run('overview([],0)'), /NaN|Infinity/);
 });
 
+test('hero glass strength defaults safely and controls the Home hero appearance', () => {
+ const run = app();
+ assert.equal(run('fresh().heroGlass'), 50);
+ assert.equal(run("normalize({cats:[],exp:[]}).heroGlass"), 50);
+ assert.equal(run("normalize({cats:[],exp:[],heroGlass:140}).heroGlass"), 100);
+ assert.equal(run("normalize({cats:[],exp:[],heroGlass:-10}).heroGlass"), 0);
+ assert.equal(run("normalize({cats:[],exp:[],heroGlass:'70'}).heroGlass"), 50);
+
+ run('S.heroGlass=72');
+ assert.match(run('overview([],0)'), /--hero-glass-blur:22\.4px/);
+ assert.match(run('overview([],0)'), /--hero-glass-light:0\.74/);
+ assert.match(run('manage()'), /id="hero-glass" type="range" min="0" max="100" step="1" value="72"/);
+ assert.match(run('manage()'), /id="hero-glass-output"[^>]*>72%/);
+});
+
 test('home hero toggle updates its expanded state and survives rerendering', () => {
  const run = app();
  run(`const panel={setAttribute(name,value){this[name]=value}};

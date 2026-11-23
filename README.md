@@ -18,7 +18,8 @@ Category renames and deletions do not reclassify saved expenses.
 Home shows a subtle spending-type badge beside each recent expense's date.
 Tap the Home spending banner to expand or collapse the selected month's split;
 the budget setup button remains a separate action. The Reports screen also
-shows the selected month's split.
+shows the selected month's split. Adjust the Home hero's blur and transparency
+in More under Hero appearance; the preference is included in JSON backups.
 On Expenses, use the All, Necessary, and Discretionary chips alongside search
 and category filters. Deleted expenses can be restored using Undo.
 Older expenses and backups receive category defaults when loaded. Spending
