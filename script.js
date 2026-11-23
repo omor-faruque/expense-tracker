@@ -227,7 +227,16 @@ function chartCoordinates(points,max=reportModel().yMax,days=reportModel().days)
  return points.map(point=>({...point,x:CHART.left+Number(point.label)/days*(CHART.right-CHART.left),y:chartY(point.value,max)}));
 }
 function chartLinePath(points){
- return points.length?`M ${CHART.left} ${CHART.bottom} `+points.map(point=>`L ${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(' '):'';
+ if(!points.length)return'';
+ // Cosine (sine-wave) interpolation: each segment is half a sine wave, flat at every data point.
+ // A cubic Bezier with handles at 0.3642 of the segment width matches a half-cosine almost exactly.
+ const p=[{x:CHART.left,y:CHART.bottom},...points],f=v=>v.toFixed(2);
+ let d=`M ${f(p[0].x)} ${f(p[0].y)}`;
+ for(let i=0;i<p.length-1;i++){
+  const k=(p[i+1].x-p[i].x)*0.3642;
+  d+=` C ${f(p[i].x+k)} ${f(p[i].y)} ${f(p[i+1].x-k)} ${f(p[i+1].y)} ${f(p[i+1].x)} ${f(p[i+1].y)}`;
+ }
+ return d;
 }
 function reportChartCard(){
  const model=reportModel(),points=chartCoordinates(model.visiblePoints,model.yMax,model.days),axisPoints=chartCoordinates(model.points,model.yMax,model.days),endpoint=points.at(-1);
@@ -291,7 +300,8 @@ function overview(list,tot){
  const prev=sum(monthExp(shift(mk,-1))),diff=prev?(tot-prev)/prev*100:null;
  const trend=diff==null?'<span class="hero-trend muted">No prior month data</span>':`<span class="hero-trend">${ic(diff>=0?'up':'down')} ${Math.abs(Math.round(diff))}% vs last month</span>`;
  const {necessaryCents,discretionaryCents,totalCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
- return`<section class="card hero tv ${heroExpanded?'expanded':''}">
+ return`<div class="hero-stage tv"><i class="orb orb-indigo" aria-hidden="true"></i><i class="orb orb-yellow" aria-hidden="true"></i><i class="orb line-yellow" aria-hidden="true"></i><i class="orb line-indigo" aria-hidden="true"></i>
+ <section class="card hero ${heroExpanded?'expanded':''}">
   <button type="button" class="hero-toggle" data-a="hero-toggle" aria-label="Toggle Necessary vs. Discretionary breakdown" aria-expanded="${heroExpanded}" aria-controls="hero-breakdown"></button>
   <div class="hero-summary"><div><small>Spent This Month</small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
   ${budgetMeter(list,tot)}
@@ -301,7 +311,7 @@ function overview(list,tot){
    <div class="hero-split-bar" aria-hidden="true"><span class="necessary" style="width:${necessaryShare}%"></span><span class="discretionary" style="width:${totalCents?100-necessaryShare:0}%;${S.discretionaryBudget&&discretionaryCents/100/S.discretionaryBudget>.9?'background:#EF4444':''}"></span></div>
    ${discretionaryCap(discretionaryCents,true)}
   </div></div></div>
- </section>
+ </section></div>
  <div class="quick-actions" aria-label="Quick actions">
   <button class="quick-action" data-a="add">${ic('plus')}<span>Add Expense</span></button>
   <button class="quick-action" data-a="category-settings">${ic('grid')}<span>Categories</span></button>
