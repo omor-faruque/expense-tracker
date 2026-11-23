@@ -524,7 +524,7 @@ function openSheet(id){
  </div>
  <div class="expense-step" data-step="1" hidden>
   <button type="button" class="amount-context" data-a="expense-back"><strong id="amount-context-value">${esc(money(expenseAmount()))}</strong><span>· Edit</span></button>
-  <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}" aria-pressed="${c.id===selCat}">${catIc(c)}${esc(c.name)}</button>`).join('')}</div>
+  <div class="chips" id="chips">${S.cats.map(c=>`<button class="chip ${c.id===selCat?'on':''}" data-a="sc" data-id="${esc(c.id)}" aria-pressed="${c.id===selCat}">${catBadge(c)}<span>${esc(c.name)}</span></button>`).join('')}</div>
   <div class="spending-toggle" id="spending-toggle" role="group" aria-label="Spending type">${Object.entries(SPENDING_TYPES).map(([type,label])=>`<button type="button" data-a="spending-type" data-v="${type}" class="${type===selectedSpendingType?'on':''}" aria-pressed="${type===selectedSpendingType}">${label}</button>`).join('')}</div>
   <div class="step-actions"><button class="btn ghost back-btn" data-a="expense-back">Back</button><button class="btn" data-a="expense-next">Next</button></div>
  </div>

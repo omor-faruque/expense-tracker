@@ -340,3 +340,23 @@ input:focus{outline:0;border-color:var(--ac)}
 @media(max-width:400px){header{gap:8px}h1{font-size:1.15rem}.mon .ml{min-width:0;font-size:.84rem}}
 @media(max-width:380px){.tabs{padding-right:6px;padding-left:6px}.tabs button{padding:4px 1px}.tabs .nav-add{padding:0}.quick-actions{gap:5px}.report-summary-grid{gap:5px}.ranked-row{gap:6px}.report-chart-head{gap:6px}.report-chart-head h2{font-size:.75rem}.report-mode button{padding-right:5px;padding-left:5px;font-size:.55rem}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important}}
+
+.amount-context{margin-bottom:14px;padding:8px 14px;border:0;background:#f4f2f7;font-size:.76rem}
+.amount-context span{color:#7d6aab}
+.chips{gap:8px 4px;margin:0;padding:4px 0 18px}
+.chip{min-height:88px;gap:8px;justify-content:center;padding:8px 2px;border:0;border-radius:16px;background:transparent;box-shadow:none;color:#777381;font-size:.63rem;font-weight:700;line-height:1.25}
+.chip.on{background:#f2f8f3;color:#303b34;box-shadow:0 6px 18px rgba(69,142,91,.1)}
+.chip .cat-badge{width:43px;height:43px;border-radius:50%;transition:transform .2s,box-shadow .2s}
+.chip .cat-badge svg.i{width:20px;height:20px;stroke-width:1.9}
+.chip.on .cat-badge{transform:scale(1.08);box-shadow:0 5px 16px color-mix(in srgb,var(--cat-color) 25%,transparent)}
+.spending-toggle{position:relative;padding:4px;border:0;background:#f2f1f5}
+.spending-toggle:before{content:"";position:absolute;top:4px;bottom:4px;left:4px;width:calc(50% - 6px);border-radius:99px;background:#fff;box-shadow:0 2px 8px rgba(31,25,48,.09);transition:transform .25s ease}
+.spending-toggle:has(button:nth-child(2).on):before{transform:translateX(calc(100% + 4px))}
+.spending-toggle button{position:relative;min-height:39px;font-size:.72rem}
+.spending-toggle button.on{background:transparent;color:var(--ac);box-shadow:none}
+.expense-step[data-step="1"] .step-actions{align-items:center;gap:14px;margin-top:18px}
+.expense-step[data-step="1"] .step-actions .btn{min-height:48px}
+.expense-step[data-step="1"] .btn:not(.ghost){box-shadow:0 8px 18px rgba(80,59,137,.24)}
+.expense-step[data-step="1"] .btn.ghost.back-btn{margin:0;color:#888493}
+@media(max-width:400px){.chip{font-size:.59rem}}
+@media(max-height:650px){.chip{min-height:70px;gap:4px}.chip .cat-badge{width:36px;height:36px}.chips{padding-bottom:10px}}
