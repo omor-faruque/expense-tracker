@@ -82,15 +82,15 @@ test('monthly breakdown uses expense overrides, exact cents, and complementary p
   {id:'3',cat:'c1',amt:999,date:'2026-10-20',spendingType:'necessary'}
  ]`);
  const card = run('spendingBreakdownCard(monthExp(mk))');
- assert.match(card, /\$1,926\.60 · 90%/);
- assert.match(card, /\$210\.00 · 10%/);
- assert.match(card, /November 2026/);
+ assert.match(card, /spending-badge necessary">Necessary<\/span><strong>\$1,926\.60<\/strong><small>90%<\/small>/);
+ assert.match(card, /spending-badge discretionary">Discretionary<\/span><strong>\$210\.00<\/strong><small>10%<\/small>/);
+ assert.doesNotMatch(card, /November 2026/);
  assert.doesNotMatch(card, /999/);
  run("reportMode='daily'");
  assert.equal(run('spendingBreakdownCard(monthExp(mk))'), card);
  const empty = run('spendingBreakdownCard([])');
  assert.match(empty, /No spending this month yet/);
- assert.equal((empty.match(/<strong>\$0\.00 · 0%<\/strong>/g) || []).length, 2);
+ assert.equal((empty.match(/<strong>\$0\.00<\/strong><small>0%<\/small>/g) || []).length, 2);
  assert.doesNotMatch(empty, /NaN|Infinity/);
  const allNecessary = run("spendingBreakdownCard([{cat:'c0',amt:0.1},{cat:'c0',amt:0.2}])");
  assert.match(allNecessary, /\$0\.30 · 100%/);
@@ -345,10 +345,14 @@ test('all Expenses cards use compact dollar symbols without changing other curre
  run("mk='2026-11';S.budget=3500");
  const kpis = run('reports([],2161.6).split(\'<section class="card spending-breakdown">\')[0]');
  assert.match(kpis, /<strong>\$2,161\.60<\/strong>/);
- assert.match(kpis, /<strong>\$3,500\.00<\/strong>/);
- assert.match(kpis, /<small>Remaining<\/small><strong>\$1,338\.40<\/strong>/);
+ assert.match(kpis, /<small>Remaining <svg.*?<\/svg><\/small><strong>\$1,338\.40<\/strong>/);
+ assert.match(kpis, /62% of \$3,500\.00/);
+ assert.match(kpis, /aria-label="Edit monthly budget\. Remaining: \$1,338\.40\. 62% of \$3,500\.00 spent\."/);
  assert.doesNotMatch(kpis, /CA\$/);
- assert.match(run('reports([],4000)'), /<strong>\$500\.00<\/strong><span>Over budget/);
+ const over = run('reports([],4000)');
+ assert.match(over, /<small>Over budget <svg.*?<\/svg><\/small><strong>\$500\.00<\/strong>/);
+ assert.match(over, /width:100%/);
+ assert.match(over, /114% of \$3,500\.00/);
  run(`S.exp=[{id:'1',cat:'c0',amt:2056.6,date:'2026-11-20',note:''},{id:'2',cat:'c6',amt:105,date:'2026-11-20',note:''}]`);
  const report = run('reports(monthExp(mk),sum(monthExp(mk)))');
  assert.doesNotMatch(report, /CA\$/);
@@ -416,21 +420,44 @@ test('report combines ranked categories and donut with a separate insights card'
  ]`);
  const report = run('reports(monthExp(mk),sum(monthExp(mk)))');
  assert.match(report, /2 expenses/);
- assert.match(report, /No budget set/);
- assert.match(report, /data-a="budget-setup"><small>Remaining<\/small>.*Tap to set →/);
+ assert.match(report, /data-a="budget-setup">.*\+ Set monthly budget/);
+ assert.doesNotMatch(report, /Not set|Tap to set|No budget set/);
+ assert.equal((report.match(/data-a="budget-setup"/g) || []).length, 1);
  assert.equal((report.match(/Spending by Category/g) || []).length, 1);
  assert.doesNotMatch(report, /Top Spending|Category Breakdown/);
  assert.match(report, /report-donut/);
+ assert.match(report, /<strong>71%<\/strong><span title="Groceries">Groceries<\/span>/);
  assert.match(report, /data-a="fc" data-id="c0"/);
+ assert.equal((report.match(/class="rank-chevron" aria-hidden="true">›/g) || []).length, 2);
  assert.match(report, /\$50\.00<\/strong><small>71%/);
  assert.match(report, /\$20\.00<\/strong><small>29%/);
  assert.match(report, /Expense Insights/);
  assert.match(report, /Highest Expense<\/small><strong>\$50\.00<\/strong>/);
  assert.match(report, /Lowest Expense<\/small><strong>\$20\.00<\/strong>/);
- assert.match(report, /Average Daily Spend<\/small><strong>\$3\.33<\/strong>/);
+ assert.match(report, /Average Daily Spend<\/small><strong>\$3\.33<\/strong><span>per day<\/span>/);
  const emptyReport = run('reports([],0)');
  assert.match(emptyReport, /No expenses for this period/);
  assert.doesNotMatch(emptyReport, /NaN|Infinity|report-donut/);
+ assert.equal((emptyReport.match(/<strong>—<\/strong><span aria-hidden="true">&nbsp;<\/span>/g) || []).length, 2);
+});
+
+test('category donut uses default colors, preserves saved colors, and identifies the leading share', () => {
+ const run = app();
+ assert.equal(run("fresh().cats.find(c=>c.name==='Shopping').color"), '#7C3AED');
+ run(`S=normalize({cats:[
+  {id:'s',name:'Shopping',color:'#F0529C'},
+  {id:'h',name:'Health',color:'#EF4B6C'},
+  {id:'g',name:'Groceries',color:'#059669'}
+ ],exp:[],categoryDefaultsAdded:true})`);
+ assert.equal(run("cat('s').color"), '#F0529C');
+ run("S.cats[0].color='#7C3AED'");
+ const card = run("categoryCard(byCat([{cat:'h',amt:4},{cat:'s',amt:2},{cat:'g',amt:1}]),7)");
+ assert.match(card, /stroke="#7C3AED"/);
+ assert.match(card, /stroke="#EF4B6C"/);
+ assert.match(card, /stroke="#059669"/);
+ assert.match(card, /<strong>57%<\/strong><span title="Health">Health<\/span>/);
+ run("S.cats[1].name='Health & Wellness'");
+ assert.match(run("categoryCard(byCat([{cat:'h',amt:1}]),1)"), /<strong>100%<\/strong><span title="Health &amp; Wellness">Health &amp; Wellness<\/span>/);
 });
 
 test('daily mode excludes only Rent and follows the page month selector', () => {

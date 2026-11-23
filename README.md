@@ -49,11 +49,14 @@ budget sheet on Home and Reports. Optional category limits can be set while
 adding or editing categories. Category progress turns amber at 80% and red at
 100%; discretionary cap progress turns red above 90%.
 In More, use Add category to expand the category editor; existing categories
-can also be edited there. KPI cards have single-line titles and
-amounts that resize to fit narrow screens. The three KPI cards share a height;
-the budget and unset remaining cards link to budget setup. Other currency
-preferences are preserved. Spending by Category combines a donut with ranked,
-selectable category rows, followed by a three-column Expense Insights card.
+can also be edited there. The Reports summary combines total spending and
+expense count with a budget setup action or remaining budget and progress.
+The remaining budget also opens the budget editor, and amounts resize to fit
+narrow screens. Other currency preferences are preserved. Spending by Category
+combines a donut with ranked, selectable category rows, followed by a
+three-column Expense Insights card. The donut highlights the top category and
+its share. New data uses violet for Shopping; existing saved category colors
+are unchanged and can be edited in More.
 
 Spending Trend follows the page's month selector and defaults to cumulative
 spending. The current month's curve and fill stop at today, with a glowing

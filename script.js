@@ -48,7 +48,7 @@ const ic=n=>`<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${IC[n]||IC.t
 const PICK=['cart','home','bolt','wifi','fuel','bag','food','car','subway','bus','bike','coffee','shirt','music','camera','briefcase','leaf','wrench','baby','dumbbell','phone','laptop','graduation','wallet','heart','film','gift','book','plane','paw','tag'];
 const COL=['#059669','#312E81','#B45309','#1E9BFF','#0284C7','#F0529C','#E8503A','#0F766E','#EF4B6C','#A855F7','#64748B','#84CC16','#DC2626','#2563EB','#0E7490','#7C3AED','#C026D3','#EA580C','#65A30D','#DB2777','#334155','#92400E','#CA8A04'];
 const LEGACY_COLORS=new Map([['Groceries',['#2FBF71',COL[0]]],['Rent',['#6C63FF',COL[1]]],['Utilities',['#F5B700',COL[2]]],['Gas',['#FF7A45',COL[4]]],['Transport',['#14B8A6',COL[7]]]]);
-const DEF=[['Groceries','cart',0],['Rent','home',1],['Utilities','bolt',2],['Phone & Internet','wifi',3],['Gas','fuel',4],['Shopping','bag',5],['Dining Out','food',6],['Transport','car',7],['TTC','subway',12],['Health','heart',8],['Fun','film',9],['Miscellaneous','tag',10]];
+const DEF=[['Groceries','cart',0],['Rent','home',1],['Utilities','bolt',2],['Phone & Internet','wifi',3],['Gas','fuel',4],['Shopping','bag',15],['Dining Out','food',6],['Transport','car',7],['TTC','subway',12],['Health','heart',8],['Fun','film',9],['Miscellaneous','tag',10]];
 const CUR=['USD','EUR','GBP','CAD','AUD','INR','BDT','JPY','CNY','CHF','MXN','BRL'];
 const KEY='pocketbook.v1';
 const DATE_RE=/^\d{4}-\d{2}-\d{2}$/;
@@ -339,21 +339,23 @@ function categoryCard(categories,tot){
   const markup=`<circle cx="60" cy="60" r="${R}" stroke="${item.c.color}" stroke-dasharray="${length} ${C-length}" stroke-dashoffset="${-(offset+gap/2)}"/>`;
   offset+=share;return markup;
  }).join('');
- const ranked=categoryPercentages(categories).map((item,index)=>{
+ const percentages=categoryPercentages(categories);
+ const ranked=percentages.map((item,index)=>{
   const progress=item.c.budget?budgetProgress(item.v,item.c.budget,item.c.color):{width:tot?item.v/tot*100:0,color:item.c.color};
-  return`<button class="ranked-row" data-a="fc" data-id="${esc(item.id)}"><span class="rank-number">${String(index+1).padStart(2,'0')}</span>${catBadge(item.c)}<span class="rank-category"><strong>${esc(item.c.name)}</strong><span class="rank-track"><i style="width:${progress.width}%;background:${progress.color}"></i></span></span><span class="rank-value"><strong>${shortMoney(item.v)}</strong><small>${item.c.budget?`/ ${shortMoney(item.c.budget)} · ${Math.floor(item.v/item.c.budget*100)}% of limit`:`${item.pct}%`}</small></span></button>`;
+  return`<button class="ranked-row" data-a="fc" data-id="${esc(item.id)}"><span class="rank-number">${String(index+1).padStart(2,'0')}</span>${catBadge(item.c)}<span class="rank-category"><strong>${esc(item.c.name)}</strong><span class="rank-track"><i style="width:${progress.width}%;background:${progress.color}"></i></span></span><span class="rank-value"><strong>${shortMoney(item.v)}</strong><small>${item.c.budget?`/ ${shortMoney(item.c.budget)} · ${Math.floor(item.v/item.c.budget*100)}% of limit`:`${item.pct}%`}</small></span><span class="rank-chevron" aria-hidden="true">›</span></button>`;
  }).join('');
- const donut=tot?`<div class="report-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(spentCategories.map(item=>`${item.c.name}: ${shortMoney(item.v)}`).join(', '))}"><circle class="donut-track" cx="60" cy="60" r="${R}"/>${segments}</svg><div><strong>${spentCategories.length}</strong><span>categories</span></div></div>`:'';
+ const top=percentages.find(item=>item.v>0);
+ const donut=top?`<div class="report-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(spentCategories.map(item=>`${item.c.name}: ${shortMoney(item.v)}`).join(', '))}"><circle class="donut-track" cx="60" cy="60" r="${R}"/>${segments}</svg><div><strong>${top.pct}%</strong><span title="${esc(top.c.name)}">${esc(top.c.name)}</span></div></div>`:'';
  return`<section class="card category-card"><h2>Spending by Category</h2>${donut}<div class="ranked-list">${ranked}</div></section>`;
 }
 function insightsCard(list,tot){
  const [year,month]=mk.split('-').map(Number),daysInMonth=new Date(year,month,0).getDate(),daysElapsed=mk===today().slice(0,7)?Number(today().slice(8)):mk<today().slice(0,7)?daysInMonth:0;
  const highest=[...list].sort((a,b)=>b.amt-a.amt)[0],lowest=[...list].sort((a,b)=>a.amt-b.amt)[0];
- const detail=expense=>expense?`<strong>${shortMoney(expense.amt)}</strong><span title="${esc(expense.note||cat(expense.cat).name)}">${esc(expense.note||cat(expense.cat).name)}</span>`:'<strong>—</strong>';
+ const detail=expense=>expense?`<strong>${shortMoney(expense.amt)}</strong><span title="${esc(expense.note||cat(expense.cat).name)}">${esc(expense.note||cat(expense.cat).name)}</span>`:'<strong>—</strong><span aria-hidden="true">&nbsp;</span>';
  return`<section class="card insights-card"><h2>Expense Insights</h2><div class="insight-list">
   <div><small>Highest Expense</small>${detail(highest)}</div>
   <div><small>Lowest Expense</small>${detail(lowest)}</div>
-  <div><small>Average Daily Spend</small><strong>${daysElapsed?shortMoney(tot/daysElapsed):'—'}</strong></div>
+  <div><small>Average Daily Spend</small><strong>${daysElapsed?shortMoney(tot/daysElapsed):'—'}</strong><span>per day</span></div>
  </div></section>`;
 }
 function spendingBreakdown(list){
@@ -365,8 +367,8 @@ function spendingBreakdown(list){
 function spendingBreakdownCard(list){
  const {necessaryCents,totalCents,discretionaryCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
  const label=`Necessary: ${shortMoney(necessaryCents/100)} · ${necessaryPct}%; Discretionary: ${shortMoney(discretionaryCents/100)} · ${discretionaryPct}%`;
- return`<section class="card spending-breakdown"><h2>Necessary vs. Discretionary</h2><p class="spending-period">${esc(mlabel(mk))}</p>
- <div class="spending-split">${[['necessary',necessaryCents,necessaryPct],['discretionary',discretionaryCents,discretionaryPct]].map(([type,cents,pct])=>`<div><span class="spending-badge ${type}">${SPENDING_TYPES[type]}</span><strong>${shortMoney(cents/100)} · ${pct}%</strong></div>`).join('')}</div>
+ return`<section class="card spending-breakdown"><h2>Necessary vs. Discretionary</h2>
+ <div class="spending-split">${[['necessary',necessaryCents,necessaryPct],['discretionary',discretionaryCents,discretionaryPct]].map(([type,cents,pct])=>`<div><span class="spending-badge ${type}">${SPENDING_TYPES[type]}</span><strong>${shortMoney(cents/100)}</strong><small>${pct}%</small></div>`).join('')}</div>
  <div class="spending-bar" role="img" aria-label="${esc(label)}"><span class="necessary" style="width:${necessaryShare}%"></span><span class="discretionary" style="width:${totalCents?100-necessaryShare:0}%;${S.discretionaryBudget&&discretionaryCents/100/S.discretionaryBudget>.9?'background:#EF4444':''}"></span></div>
  ${discretionaryCap(discretionaryCents)}
  ${totalCents?'':'<p class="spending-empty">No spending this month yet.</p>'}</section>`;
@@ -374,13 +376,11 @@ function spendingBreakdownCard(list){
 function reports(list,tot){
  const categories=byCat(list),budget=S.budget>0?S.budget:null,remaining=budget?budget-tot:null;
  S.cats.filter(c=>c.budget&&!categories.some(item=>item.id===c.id)).forEach(c=>categories.push({id:c.id,v:0,c:cat(c.id)}));
- const progress=budget?Math.min(tot/budget,1)*100:0;
- const remainingText=remaining==null?'Set budget':shortMoney(Math.abs(remaining));
- return`<div class="report-summary-grid">
-  <section class="card report-stat"><small>Total Expenses</small><strong>${shortMoney(tot)}</strong><span>${list.length} ${list.length===1?'expense':'expenses'}</span></section>
-  <button class="card report-stat budget-stat" data-a="budget-setup"><small>Monthly Budget</small><strong>${budget?shortMoney(budget):'Not set'}</strong><span>${budget?`${Math.round(progress)}% used`:'No budget set'}</span></button>
-  ${budget?`<section class="card report-stat remaining-stat ${remaining<0?'over':''}"><small>Remaining</small><strong>${remainingText}</strong><span>${remaining<0?'Over budget':`${Math.round(progress)}% used`}</span></section>`:`<button class="card report-stat remaining-stat" data-a="budget-setup"><small>Remaining</small><strong>${remainingText}</strong><span class="set-budget-action">Tap to set →</span></button>`}
- </div>
+ const progress=budget?tot/budget*100:0;
+ return`<section class="card report-summary" aria-label="Monthly spending summary">
+  <div class="report-stat report-total"><small>Total Spent</small><strong>${shortMoney(tot)}</strong><span class="expense-count">${list.length} ${list.length===1?'expense':'expenses'}</span></div>
+  <div class="report-budget">${budget?`<button type="button" class="report-stat remaining-stat ${remaining<0?'over':''}" data-a="budget-setup" title="Edit monthly budget" aria-label="Edit monthly budget. ${remaining<0?'Over budget':'Remaining'}: ${esc(shortMoney(Math.abs(remaining)))}. ${Math.round(progress)}% of ${esc(shortMoney(budget))} spent."><small>${remaining<0?'Over budget':'Remaining'} ${ic('edit')}</small><strong>${shortMoney(Math.abs(remaining))}</strong><span class="report-budget-track" aria-hidden="true"><i style="width:${Math.min(progress,100)}%"></i></span><span class="report-budget-detail">${Math.round(progress)}% of ${shortMoney(budget)}</span></button>`:`<button type="button" class="report-budget-setup" data-a="budget-setup">${ic('wallet')}<span>+ Set monthly budget</span></button>`}</div>
+ </section>
  ${spendingBreakdownCard(list)}
  ${reportChartCard()}
  ${categoryCard(categories,tot)}
@@ -448,7 +448,7 @@ function manage(){
 }
 
 function fitReportStats(){
- document.querySelectorAll('.report-stat>strong,.report-stat>small').forEach(el=>{
+ document.querySelectorAll('.report-stat>strong,.spending-split strong').forEach(el=>{
   el.style.fontSize='';
   if(el.scrollWidth>el.clientWidth&&el.clientWidth>0)el.style.fontSize=`${parseFloat(getComputedStyle(el).fontSize)*(el.clientWidth-1)/el.scrollWidth}px`;
  });
