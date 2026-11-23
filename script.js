@@ -303,7 +303,7 @@ function overview(list,tot){
  const prev=sum(monthExp(shift(mk,-1))),diff=prev?(tot-prev)/prev*100:null;
  const trend=diff==null?'<span class="hero-trend muted">No prior month data</span>':`<span class="hero-trend">${ic(diff>=0?'up':'down')} ${Math.abs(Math.round(diff))}% vs last month</span>`;
  const {necessaryCents,discretionaryCents,totalCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
- return`<div class="hero-stage tv"><i class="orb orb-indigo" aria-hidden="true"></i><i class="orb orb-yellow" aria-hidden="true"></i><i class="orb line-yellow" aria-hidden="true"></i><i class="orb line-indigo" aria-hidden="true"></i>
+ return`<div class="hero-stage tv"><i class="orb orb-indigo" aria-hidden="true"></i><i class="orb orb-blue" aria-hidden="true"></i><i class="orb line-blue" aria-hidden="true"></i><i class="orb line-indigo" aria-hidden="true"></i>
  <section class="card hero ${heroExpanded?'expanded':''}" style="${heroGlassStyle()}">
   <button type="button" class="hero-toggle" data-a="hero-toggle" aria-label="Toggle Necessary vs. Discretionary breakdown" aria-expanded="${heroExpanded}" aria-controls="hero-breakdown"></button>
   <div class="hero-summary"><div><small>Spent This Month</small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
