@@ -305,6 +305,7 @@ function overview(list,tot){
  const {necessaryCents,discretionaryCents,totalCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
  return`<div class="hero-stage tv"><i class="orb orb-indigo" aria-hidden="true"></i><i class="orb orb-blue" aria-hidden="true"></i><i class="orb line-blue" aria-hidden="true"></i><i class="orb line-indigo" aria-hidden="true"></i>
  <section class="card hero ${heroExpanded?'expanded':''}" style="${heroGlassStyle()}">
+  <span class="hero-fx" aria-hidden="true"><span class="hero-fx-box"></span><span class="hero-fx-ring"></span></span>
   <button type="button" class="hero-toggle" data-a="hero-toggle" aria-label="Toggle Necessary vs. Discretionary breakdown" aria-expanded="${heroExpanded}" aria-controls="hero-breakdown"></button>
   <div class="hero-summary"><div><small>Spent This Month</small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
   ${budgetMeter(list,tot)}
@@ -455,7 +456,7 @@ function fitReportStats(){
 }
 function monthSwitcher(){
  const label=new Date(mk+'-15T12:00').toLocaleDateString('en-US',{month:'short',year:'numeric'});
- return`<div class="mon"><button type="button" data-a="pm" aria-label="Previous month" ${mk<='2000-01'?'disabled':''}>${ic('left')}</button><button type="button" class="ml" id="month-switcher" data-a="month-picker" aria-label="Select month, ${esc(mlabel(mk))}" aria-haspopup="dialog">${esc(label)}</button><button type="button" data-a="nm" aria-label="Next month" ${mk>=latestMonth()?'disabled':''}>${ic('right')}</button></div>`;
+ return`<div class="mon"><span class="mon-fx" aria-hidden="true"><span class="mon-fx-box"></span><span class="mon-fx-ring"></span></span><button type="button" data-a="pm" aria-label="Previous month" ${mk<='2000-01'?'disabled':''}>${ic('left')}</button><button type="button" class="ml" id="month-switcher" data-a="month-picker" aria-label="Select month, ${esc(mlabel(mk))}" aria-haspopup="dialog">${esc(label)}</button><button type="button" data-a="nm" aria-label="Next month" ${mk>=latestMonth()?'disabled':''}>${ic('right')}</button></div>`;
 }
 function render(){
  reportCache=null;
