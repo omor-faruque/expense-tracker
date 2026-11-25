@@ -106,7 +106,6 @@ const shortMoney=n=>shortCurrency(fmt.formatToParts(n));
 const money=shortMoney;
 const axisMoney=n=>shortCurrency(axisFmt.formatToParts(n));
 const heroMoney=n=>fmt.formatToParts(n).map(p=>p.type==='currency'?`<span class="money-prefix">${esc(shortCurrency([p]))}</span>`:p.type==='decimal'||p.type==='fraction'?`<span class="money-cents">${esc(p.value)}</span>`:esc(p.value)).join('');
-const heroGlassStyle=()=>`--hero-glass-blur:${(8+S.heroGlass*.2).toFixed(1)}px;--hero-glass-light:${(.88-S.heroGlass*.002).toFixed(2)};--hero-glass-mid:${(.48-S.heroGlass*.0028).toFixed(2)};--hero-glass-base:${(.3-S.heroGlass*.002).toFixed(2)}`;
 const sym=()=>shortCurrency([fmt.formatToParts(0).find(p=>p.type==='currency')]);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
@@ -305,7 +304,7 @@ function overview(list,tot){
  const trend=diff==null?'<span class="hero-trend muted">No prior month data</span>':`<span class="hero-trend">${ic(diff>=0?'up':'down')} ${Math.abs(Math.round(diff))}% vs last month</span>`;
  const {necessaryCents,discretionaryCents,totalCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
  return`<div class="hero-stage tv"><i class="orb orb-indigo" aria-hidden="true"></i><i class="orb orb-blue" aria-hidden="true"></i><i class="orb line-blue" aria-hidden="true"></i><i class="orb line-indigo" aria-hidden="true"></i>
- <section class="card hero ${heroExpanded?'expanded':''}" style="${heroGlassStyle()}">
+ <section class="card hero ${heroExpanded?'expanded':''}">
   <span class="hero-fx" aria-hidden="true"><span class="hero-fx-box"></span><span class="hero-fx-ring"></span></span>
   <button type="button" class="hero-toggle" data-a="hero-toggle" aria-label="Toggle Necessary vs. Discretionary breakdown" aria-expanded="${heroExpanded}" aria-controls="hero-breakdown"></button>
   <div class="hero-summary"><div><small>Spent This Month</small><div class="big" id="big">${heroMoney(0)}</div></div>${trend}</div>
@@ -435,12 +434,7 @@ function manage(){
  <button class="btn" data-a="ac" ${newIcon&&newCol?'':'disabled'}>${categoryToEdit?'Save category':'Add category'}</button><button class="btn ghost" data-a="cancel-edit-cat">Cancel</button></div>`:'<div id="category-editor" hidden></div>'}</div>
  ${recurringCard()}
  <div class="card glass-card tv" id="monthly-budget-card">${glassFx}<h2>Monthly budget</h2><p class="note budget-note">Track monthly spending targets across Home and Reports.</p><div class="budget-field"><span>Monthly budget</span>${budgetInput('monthly-budget')}</div><div class="budget-field"><span>Discretionary spending cap</span>${budgetInput('discretionary-budget','discretionaryBudget','Discretionary spending cap')}</div><small class="budget-help">Leave blank to remove a limit. Limits are not shared or synced.</small></div>
- <div class="card glass-card tv" id="hero-glass-card">${glassFx}<h2>Hero appearance</h2>
- <div class="glass-setting"><div class="glass-setting-heading"><label for="hero-glass">Glass strength</label><output id="hero-glass-output" for="hero-glass">${S.heroGlass}%</output></div>
- <input id="hero-glass" type="range" min="0" max="100" step="1" value="${S.heroGlass}" aria-describedby="hero-glass-help">
- <div class="glass-range-labels" aria-hidden="true"><span>Subtle</span><span>Bold</span></div>
- <small id="hero-glass-help" class="budget-help">Adjust the blur and transparency of the Home spending card.</small>
- <div class="glass-demo-scene" aria-hidden="true"><div class="glass-preview" id="hero-glass-preview" style="${heroGlassStyle()}">Hero preview</div></div></div></div>
+
  <div class="card glass-card tv">${glassFx}<h2>Preferences</h2>
  <label class="set"><span>Currency</span><select id="cur">${CUR.map(c=>`<option ${c===S.currency?'selected':''}>${c}</option>`).join('')}</select></label></div>
  <div class="card glass-card tv">${glassFx}<h2>Your data</h2><div class="acts">
@@ -830,11 +824,7 @@ document.addEventListener('change',ev=>{
 document.addEventListener('input',ev=>{
  if(ev.target.id==='q'){q=ev.target.value;$('xl').innerHTML=exList()}
  else if(ev.target.id==='ea')updateExpenseForm();
- else if(ev.target.id==='hero-glass'){
-  S.heroGlass=normalizeHeroGlass(Number(ev.target.value));
-  $('hero-glass-output').textContent=`${S.heroGlass}%`;
-  $('hero-glass-preview').style.cssText=heroGlassStyle();
- }
+ 
 });
 document.addEventListener('pointermove',ev=>{
  const plot=ev.target.closest?.('.report-plot');
