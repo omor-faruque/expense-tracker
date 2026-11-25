@@ -284,7 +284,7 @@ function recentExpenses(list){
  if(!rows.length)return empty('No expenses yet this month.<br>Tap + to add your first one.','list');
  return`<div class="home-expenses">${rows.map(expense=>{
   const category=cat(expense.cat),date=new Date(expense.date+'T12:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-  return`<button class="home-expense" data-a="ee" data-id="${esc(expense.id)}">${catBadge(category)}<span class="home-expense-main"><b>${esc(expense.note||category.name)}</b><span class="home-expense-meta"><small>${date}</small>${spendingBadge(expense)}${recurringBadge(expense)}</span></span><span class="home-expense-amount"><strong>${money(expense.amt)}</strong></span></button>`;
+  return`<button class="home-expense" data-a="ee" data-id="${esc(expense.id)}"><span class="home-expense-fx" aria-hidden="true"><span class="home-expense-fx-box"></span><span class="home-expense-fx-ring"></span></span>${catBadge(category)}<span class="home-expense-main"><b>${esc(expense.note||category.name)}</b><span class="home-expense-meta"><small>${date}</small>${spendingBadge(expense)}${recurringBadge(expense)}</span></span><span class="home-expense-amount"><strong>${money(expense.amt)}</strong></span></button>`;
  }).join('')}</div>`;
 }
 
