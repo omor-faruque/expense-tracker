@@ -256,7 +256,8 @@ h1 {
 .hero-fx,
 .mon-fx,
 .home-expense-fx,
-.tabs-fx {
+.tabs-fx,
+.glass-fx {
    position: absolute;
    inset: 0;
    z-index: 0;
@@ -268,7 +269,8 @@ h1 {
 .hero-fx-box,
 .mon-fx-box,
 .home-expense-fx-box,
-.tabs-fx-box {
+.tabs-fx-box,
+.glass-fx-box {
    --r: 25px;
    --tr: 15%;
    position: absolute;
@@ -281,7 +283,8 @@ h1 {
 .hero-fx-box:before,
 .mon-fx-box:before,
 .home-expense-fx-box:before,
-.tabs-fx-box:before {
+.tabs-fx-box:before,
+.glass-fx-box:before {
    content: "";
    position: absolute;
    z-index: 1;
@@ -298,7 +301,8 @@ h1 {
 .hero-fx-box:after,
 .mon-fx-box:after,
 .home-expense-fx-box:after,
-.tabs-fx-box:after {
+.tabs-fx-box:after,
+.glass-fx-box:after {
    content: "";
    position: absolute;
    inset: 0;
@@ -311,7 +315,8 @@ h1 {
 .hero-fx-ring,
 .mon-fx-ring,
 .home-expense-fx-ring,
-.tabs-fx-ring {
+.tabs-fx-ring,
+.glass-fx-ring {
    position: absolute;
    inset: 4px;
    border: 1px solid rgba(255, 255, 255, .2);
@@ -3023,5 +3028,62 @@ input:focus {
 
    .chips {
       padding-bottom: 10px
+   }
+}
+
+/* Glass cards (Report tab sections) */
+.card.glass-card {
+   position: relative;
+   overflow: hidden;
+   border: 1px double rgba(51, 51, 51, .08);
+   border-radius: 20px;
+   background: rgba(255, 255, 255, .35);
+   -webkit-backdrop-filter: blur(8px) saturate(170%);
+   backdrop-filter: blur(8px) saturate(170%);
+   box-shadow: 0 4px 8px rgba(0, 0, 0, .12)
+}
+
+.glass-card>*:not(.glass-fx) {
+   position: relative;
+   z-index: 1
+}
+
+.glass-fx-box {
+   --r: 19px
+}
+
+.glass-fx-ring {
+   inset: 3px;
+   border-radius: 16px
+}
+
+.glass-card .report-total,
+.glass-card .insight-list>div:not(:last-child) {
+   border-right-color: rgba(15, 23, 42, .08)
+}
+
+.glass-card .ranked-row {
+   border-top-color: rgba(15, 23, 42, .08)
+}
+
+.glass-card .category-editor,
+.glass-card .recurring-row {
+   border-top-color: rgba(15, 23, 42, .08)
+}
+
+/* Same backdrop-root fix as the hero: animate the children, not the blurred card itself */
+.card.glass-card.tv {
+   animation: none
+}
+
+.card.glass-card.tv>* {
+   animation: pop .45s ease backwards
+}
+
+@media(prefers-reduced-transparency:reduce) {
+   .card.glass-card {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background: #fff
    }
 }

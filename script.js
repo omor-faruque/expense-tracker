@@ -182,6 +182,7 @@ function categoryPercentages(categories){
  [...shares].sort((a,b)=>b.remainder-a.remainder).slice(0,remaining).forEach(x=>x.pct++);
  return shares;
 }
+const glassFx='<span class="glass-fx" aria-hidden="true"><span class="glass-fx-box"></span><span class="glass-fx-ring"></span></span>';
 const empty=(msg,icon)=>`<div class="empty"><div class="eic">${ic(icon)}</div>${msg}</div>`;
 const catIc=(c,cls='')=>`<div class="ic ${cls}" style="background:${categoryColor(c)}">${ic(c.icon)}</div>`;
 const REPORT_COLORS=['#4F46E5','#F59E0B','#10B981','#0EA5E9'];
@@ -247,7 +248,7 @@ function reportChartCard(){
  const chartLabel=reportMode==='cumulative'?'Cumulative monthly spending chart':'Daily spending excluding Rent chart';
  const pace=model.budget?`<path class="report-budget-pace" d="M ${CHART.left} ${CHART.bottom} L ${CHART.right} ${chartY(model.budget,model.yMax).toFixed(2)}"/>`:'';
  const endpointDot=endpoint&&model.currentMonth&&reportMode==='cumulative'?`<span class="report-endpoint" aria-hidden="true" style="left:${endpoint.x/CHART.width*100}%;top:${endpoint.y/CHART.height*100}%"></span>`:'';
- return`<div class="card report-chart"><div class="report-chart-head"><h2>Spending Trend</h2>
+ return`<div class="card glass-card report-chart">${glassFx}<div class="report-chart-head"><h2>Spending Trend</h2>
  <div class="report-mode" role="group" aria-label="Monthly chart mode">${[['cumulative','Cumulative'],['daily','Daily (Excl. Rent)']].map(([mode,label])=>`<button type="button" data-a="report-mode" data-v="${mode}" class="${mode===reportMode?'on':''}" aria-pressed="${mode===reportMode}">${label}</button>`).join('')}</div></div>
  <div class="report-legend"><span class="spending-key">${reportMode==='cumulative'?'Cumulative spending':'Daily (Excl. Rent)'}</span>${model.budget?'<span class="pace-key">Monthly Budget Pace</span>':''}</div>
  <div class="report-plot" id="report-plot" role="group" tabindex="0" aria-label="${chartLabel}" aria-describedby="report-tooltip"><svg viewBox="0 0 640 170" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="report-gradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#6366F1" stop-opacity=".24"/><stop offset="100%" stop-color="#6366F1" stop-opacity=".01"/></linearGradient></defs>
@@ -332,7 +333,7 @@ function toggleHeroBreakdown(button){
 }
 
 function categoryCard(categories,tot){
- if(!categories.length)return`<section class="card category-card"><h2>Spending by Category</h2>${empty('No expenses for this period.','chart')}</section>`;
+ if(!categories.length)return`<section class="card glass-card category-card">${glassFx}<h2>Spending by Category</h2>${empty('No expenses for this period.','chart')}</section>`;
  const spentCategories=categories.filter(item=>item.v>0);
  const R=42,C=2*Math.PI*R;let offset=0;
  const segments=spentCategories.map(item=>{
@@ -347,13 +348,13 @@ function categoryCard(categories,tot){
  }).join('');
  const top=percentages.find(item=>item.v>0);
  const donut=top?`<div class="report-donut"><svg viewBox="0 0 120 120" role="img" aria-label="${esc(spentCategories.map(item=>`${item.c.name}: ${shortMoney(item.v)}`).join(', '))}"><circle class="donut-track" cx="60" cy="60" r="${R}"/>${segments}</svg><div><strong>${top.pct}%</strong><span title="${esc(top.c.name)}">${esc(top.c.name)}</span></div></div>`:'';
- return`<section class="card category-card"><h2>Spending by Category</h2>${donut}<div class="ranked-list">${ranked}</div></section>`;
+ return`<section class="card glass-card category-card">${glassFx}<h2>Spending by Category</h2>${donut}<div class="ranked-list">${ranked}</div></section>`;
 }
 function insightsCard(list,tot){
  const [year,month]=mk.split('-').map(Number),daysInMonth=new Date(year,month,0).getDate(),daysElapsed=mk===today().slice(0,7)?Number(today().slice(8)):mk<today().slice(0,7)?daysInMonth:0;
  const highest=[...list].sort((a,b)=>b.amt-a.amt)[0],lowest=[...list].sort((a,b)=>a.amt-b.amt)[0];
  const detail=expense=>expense?`<strong>${shortMoney(expense.amt)}</strong><span title="${esc(expense.note||cat(expense.cat).name)}">${esc(expense.note||cat(expense.cat).name)}</span>`:'<strong>—</strong><span aria-hidden="true">&nbsp;</span>';
- return`<section class="card insights-card"><h2>Expense Insights</h2><div class="insight-list">
+ return`<section class="card glass-card insights-card">${glassFx}<h2>Expense Insights</h2><div class="insight-list">
   <div><small>Highest Expense</small>${detail(highest)}</div>
   <div><small>Lowest Expense</small>${detail(lowest)}</div>
   <div><small>Average Daily Spend</small><strong>${daysElapsed?shortMoney(tot/daysElapsed):'—'}</strong><span>per day</span></div>
@@ -368,7 +369,7 @@ function spendingBreakdown(list){
 function spendingBreakdownCard(list){
  const {necessaryCents,totalCents,discretionaryCents,necessaryShare,necessaryPct,discretionaryPct}=spendingBreakdown(list);
  const label=`Necessary: ${shortMoney(necessaryCents/100)} · ${necessaryPct}%; Discretionary: ${shortMoney(discretionaryCents/100)} · ${discretionaryPct}%`;
- return`<section class="card spending-breakdown"><h2>Necessary vs. Discretionary</h2>
+ return`<section class="card glass-card spending-breakdown">${glassFx}<h2>Necessary vs. Discretionary</h2>
  <div class="spending-split">${[['necessary',necessaryCents,necessaryPct],['discretionary',discretionaryCents,discretionaryPct]].map(([type,cents,pct])=>`<div><span class="spending-badge ${type}">${SPENDING_TYPES[type]}</span><strong>${shortMoney(cents/100)}</strong><small>${pct}%</small></div>`).join('')}</div>
  <div class="spending-bar" role="img" aria-label="${esc(label)}"><span class="necessary" style="width:${necessaryShare}%"></span><span class="discretionary" style="width:${totalCents?100-necessaryShare:0}%;${S.discretionaryBudget&&discretionaryCents/100/S.discretionaryBudget>.9?'background:#EF4444':''}"></span></div>
  ${discretionaryCap(discretionaryCents)}
@@ -378,7 +379,7 @@ function reports(list,tot){
  const categories=byCat(list),budget=S.budget>0?S.budget:null,remaining=budget?budget-tot:null;
  S.cats.filter(c=>c.budget&&!categories.some(item=>item.id===c.id)).forEach(c=>categories.push({id:c.id,v:0,c:cat(c.id)}));
  const progress=budget?tot/budget*100:0;
- return`<section class="card report-summary" aria-label="Monthly spending summary">
+ return`<section class="card glass-card report-summary" aria-label="Monthly spending summary">${glassFx}
   <div class="report-stat report-total"><small>Total Spent</small><strong>${shortMoney(tot)}</strong><span class="expense-count">${list.length} ${list.length===1?'expense':'expenses'}</span></div>
   <div class="report-budget">${budget?`<button type="button" class="report-stat remaining-stat ${remaining<0?'over':''}" data-a="budget-setup" title="Edit monthly budget" aria-label="Edit monthly budget. ${remaining<0?'Over budget':'Remaining'}: ${esc(shortMoney(Math.abs(remaining)))}. ${Math.round(progress)}% of ${esc(shortMoney(budget))} spent."><small>${remaining<0?'Over budget':'Remaining'} ${ic('edit')}</small><strong>${shortMoney(Math.abs(remaining))}</strong><span class="report-budget-track" aria-hidden="true"><i style="width:${Math.min(progress,100)}%"></i></span><span class="report-budget-detail">${Math.round(progress)}% of ${shortMoney(budget)}</span></button>`:`<button type="button" class="report-budget-setup" data-a="budget-setup">${ic('wallet')}<span>+ Set monthly budget</span></button>`}</div>
  </section>
@@ -416,14 +417,14 @@ function budgetInput(id,key='budget',label='Monthly budget',value=S[key]){
 }
 function recurringCard(){
  const rows=S.recurring.map(r=>`<div class="recurring-row"><div class="recurring-info"><strong>${esc(r.note||cat(r.cat).name)}</strong><small>${shortMoney(r.amt)} · Day ${r.day}${r.paused?' · Paused':''}</small></div><button type="button" class="switch" role="switch" aria-checked="${!r.paused}" aria-label="${esc(`${r.paused?'Resume':'Pause'} ${r.note||cat(r.cat).name}`)}" data-a="toggle-recurring" data-id="${esc(r.id)}"><span></span></button><button type="button" class="del" data-a="delete-recurring" data-id="${esc(r.id)}" aria-label="${esc(`Delete recurring ${r.note||cat(r.cat).name}`)}">${ic('trash')}</button></div>`).join('');
- return`<section class="card" id="recurring-card"><h2>Recurring expenses</h2>${rows||'<p class="note budget-note">No recurring expenses yet.</p>'}</section>`;
+ return`<section class="card glass-card" id="recurring-card">${glassFx}<h2>Recurring expenses</h2>${rows||'<p class="note budget-note">No recurring expenses yet.</p>'}</section>`;
 }
 function manage(){
  const categoryToEdit=S.cats.find(c=>c.id===editingCat);
  if(editingCat&&!categoryToEdit)editingCat=null;
  ensureNewCategoryChoices();
  const spent={};monthExp(today().slice(0,7)).forEach(e=>spent[e.cat]=(spent[e.cat]||0)+e.amt);
- return`<div class="card tv" id="categories-card"><div class="category-heading"><h2>Your categories · this month</h2><button class="add-category" data-a="add-category" aria-expanded="${categoryEditorOpen}" aria-controls="category-editor">+ Add category</button></div>${S.cats.length?`<div class="grid">${S.cats.map((c,i)=>{
+ return`<div class="card glass-card tv" id="categories-card">${glassFx}<div class="category-heading"><h2>Your categories · this month</h2><button class="add-category" data-a="add-category" aria-expanded="${categoryEditorOpen}" aria-controls="category-editor">+ Add category</button></div>${S.cats.length?`<div class="grid">${S.cats.map((c,i)=>{
   const amount=spent[c.id]||0,progress=c.budget?budgetProgress(amount,c.budget,categoryColor(c)):null;
   return`<div class="cc li" role="button" tabindex="0" data-a="fc" data-id="${esc(c.id)}" style="animation-delay:${i*30}ms">${catIc(c)}<span>${esc(c.name)}<small>${money(amount)}${c.budget?` / ${money(c.budget)}`:''}</small></span>${progress?`<div class="rank-track category-limit-track"><i style="width:${progress.width}%;background:${progress.color}"></i></div>`:''}<button class="del edit-category" data-a="ec" data-id="${esc(c.id)}" aria-label="Edit ${esc(c.name)}">${ic('edit')}</button><button class="del" data-a="dc" data-id="${esc(c.id)}" aria-label="Delete ${esc(c.name)}">${ic('trash')}</button></div>`;
  }).join('')}</div>`:empty('No categories yet.','grid')}
@@ -433,16 +434,16 @@ function manage(){
  <div class="pick sw" id="pc">${COL.map(c=>`<button data-a="pcol" data-v="${c}" style="background:${c}" class="${c===newCol?'on':''}" aria-label="Color ${c}" ${colorAvailable(c)?'':'disabled'}></button>`).join('')}</div>
  <button class="btn" data-a="ac" ${newIcon&&newCol?'':'disabled'}>${categoryToEdit?'Save category':'Add category'}</button><button class="btn ghost" data-a="cancel-edit-cat">Cancel</button></div>`:'<div id="category-editor" hidden></div>'}</div>
  ${recurringCard()}
- <div class="card tv" id="monthly-budget-card"><h2>Monthly budget</h2><p class="note budget-note">Track monthly spending targets across Home and Reports.</p><div class="budget-field"><span>Monthly budget</span>${budgetInput('monthly-budget')}</div><div class="budget-field"><span>Discretionary spending cap</span>${budgetInput('discretionary-budget','discretionaryBudget','Discretionary spending cap')}</div><small class="budget-help">Leave blank to remove a limit. Limits are not shared or synced.</small></div>
- <div class="card tv" id="hero-glass-card"><h2>Hero appearance</h2>
+ <div class="card glass-card tv" id="monthly-budget-card">${glassFx}<h2>Monthly budget</h2><p class="note budget-note">Track monthly spending targets across Home and Reports.</p><div class="budget-field"><span>Monthly budget</span>${budgetInput('monthly-budget')}</div><div class="budget-field"><span>Discretionary spending cap</span>${budgetInput('discretionary-budget','discretionaryBudget','Discretionary spending cap')}</div><small class="budget-help">Leave blank to remove a limit. Limits are not shared or synced.</small></div>
+ <div class="card glass-card tv" id="hero-glass-card">${glassFx}<h2>Hero appearance</h2>
  <div class="glass-setting"><div class="glass-setting-heading"><label for="hero-glass">Glass strength</label><output id="hero-glass-output" for="hero-glass">${S.heroGlass}%</output></div>
  <input id="hero-glass" type="range" min="0" max="100" step="1" value="${S.heroGlass}" aria-describedby="hero-glass-help">
  <div class="glass-range-labels" aria-hidden="true"><span>Subtle</span><span>Bold</span></div>
  <small id="hero-glass-help" class="budget-help">Adjust the blur and transparency of the Home spending card.</small>
  <div class="glass-demo-scene" aria-hidden="true"><div class="glass-preview" id="hero-glass-preview" style="${heroGlassStyle()}">Hero preview</div></div></div></div>
- <div class="card tv"><h2>Preferences</h2>
+ <div class="card glass-card tv">${glassFx}<h2>Preferences</h2>
  <label class="set"><span>Currency</span><select id="cur">${CUR.map(c=>`<option ${c===S.currency?'selected':''}>${c}</option>`).join('')}</select></label></div>
- <div class="card tv"><h2>Your data</h2><div class="acts">
+ <div class="card glass-card tv">${glassFx}<h2>Your data</h2><div class="acts">
  <button class="act" data-a="csv">${ic('csv')}Export CSV</button><button class="act" data-a="bk">${ic('save')}Backup</button><button class="act" data-a="rs">${ic('load')}Restore</button></div>
  <button class="btn ghost" data-a="reset">Reset all data</button>
  <p class="note">Everything is stored privately on this device.</p></div>`;
