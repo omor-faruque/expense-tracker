@@ -475,7 +475,7 @@ function render(){
   const b=$('big');if(b)count(b,tot);
  }));
  const T=[['ov','home','Home'],['ex','list','Expenses'],['add','plus','Add Expense'],['reports','chart','Reports'],['more','grid','More']];
- tabs.innerHTML=T.map(t=>t[0]==='add'?`<button class="nav-add" data-a="add" aria-label="Add Expense">${ic(t[1])}</button>`:`<button class="nav-item ${tab===t[0]?'on':''}" data-a="tab" data-v="${t[0]}" aria-label="${t[2]}" ${tab===t[0]?'aria-current="page"':''}>${ic(t[1])}<span>${t[2]}</span></button>`).join('');
+ tabs.innerHTML='<span class="tabs-fx" aria-hidden="true"><span class="tabs-fx-box"></span><span class="tabs-fx-ring"></span></span>'+T.map(t=>t[0]==='add'?`<button class="nav-add" data-a="add" aria-label="Add Expense">${ic(t[1])}</button>`:`<button class="nav-item ${tab===t[0]?'on':''}" data-a="tab" data-v="${t[0]}" aria-label="${t[2]}" ${tab===t[0]?'aria-current="page"':''}>${ic(t[1])}<span>${t[2]}</span></button>`).join('');
 }
 
 function renderMonthPicker(){

@@ -29,7 +29,7 @@ html {
 body {
    margin: 0;
    min-height: 100%;
-   background: radial-gradient(circle at center, #f5f5f7, #e2e2e8);   
+   background: radial-gradient(circle at center, #f5f5f7, #e2e2e8);
    color: var(--ink);
    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
    font-variant-numeric: tabular-nums;
@@ -255,7 +255,8 @@ h1 {
 /* Liquid-glass rim (from the glass-effect reference): contrast(3) sharpens the blurred highlights into crisp glass edges */
 .hero-fx,
 .mon-fx,
-.home-expense-fx {
+.home-expense-fx,
+.tabs-fx {
    position: absolute;
    inset: 0;
    z-index: 0;
@@ -266,7 +267,8 @@ h1 {
 
 .hero-fx-box,
 .mon-fx-box,
-.home-expense-fx-box {
+.home-expense-fx-box,
+.tabs-fx-box {
    --r: 25px;
    --tr: 15%;
    position: absolute;
@@ -278,7 +280,8 @@ h1 {
 
 .hero-fx-box:before,
 .mon-fx-box:before,
-.home-expense-fx-box:before {
+.home-expense-fx-box:before,
+.tabs-fx-box:before {
    content: "";
    position: absolute;
    z-index: 1;
@@ -294,7 +297,8 @@ h1 {
 
 .hero-fx-box:after,
 .mon-fx-box:after,
-.home-expense-fx-box:after {
+.home-expense-fx-box:after,
+.tabs-fx-box:after {
    content: "";
    position: absolute;
    inset: 0;
@@ -306,7 +310,8 @@ h1 {
 
 .hero-fx-ring,
 .mon-fx-ring,
-.home-expense-fx-ring {
+.home-expense-fx-ring,
+.tabs-fx-ring {
    position: absolute;
    inset: 4px;
    border: 1px solid rgba(255, 255, 255, .2);
@@ -1912,21 +1917,42 @@ input:focus {
 
 .tabs {
    position: fixed;
-   left: 0;
-   right: 0;
-   bottom: 0;
+   left: 12px;
+   right: 12px;
+   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
    z-index: 8;
    display: grid;
    grid-template-columns: repeat(5, minmax(0, 1fr));
    align-items: center;
    gap: 0;
-   width: 100%;
-   max-width: 560px;
+   width: auto;
+   max-width: 536px;
    margin: 0 auto;
-   padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
-   border-top: 1px solid var(--bd);
-   background: rgba(255, 255, 255, .98);
-   box-shadow: 0 -8px 28px rgba(15, 23, 42, .06)
+   padding: 8px 10px;
+   border: 1px double rgba(51, 51, 51, .08);
+   border-radius: 30px;
+   background: rgba(255, 255, 255, .3);
+   -webkit-backdrop-filter: blur(10px) saturate(170%);
+   backdrop-filter: blur(10px) saturate(170%);
+   box-shadow: 0 4px 10px rgba(0, 0, 0, .18)
+}
+
+.tabs-fx {
+   overflow: hidden
+}
+
+.tabs-fx-box {
+   --r: 29px
+}
+
+.tabs-fx-ring {
+   inset: 3px;
+   border-radius: 26px
+}
+
+.tabs>*:not(.tabs-fx) {
+   position: relative;
+   z-index: 1
 }
 
 .tabs button {
@@ -1962,8 +1988,10 @@ input:focus {
 }
 
 .tabs .nav-item.on {
-   background: transparent;
-   color: #0F172A;
+   border-radius: 20px;
+   background: rgba(255, 255, 255, .55);
+   box-shadow: 0 2px 6px rgba(0, 0, 0, .12), inset 0 0 0 1px rgba(255, 255, 255, .7);
+   color: var(--ink);
    font-weight: 800
 }
 
@@ -1975,11 +2003,11 @@ input:focus {
    align-self: start;
    margin-top: -22px;
    padding: 0;
-   border: 4px solid #fff;
+   border: 3px solid rgba(255, 255, 255, .75);
    border-radius: 50%;
-   background: #0F172A;
+   background: var(--ink);
    color: #fff;
-   box-shadow: 0 6px 16px rgba(15, 23, 42, .22);
+   box-shadow: 0 6px 16px rgba(15, 23, 42, .3);
    transform: translateY(-3px)
 }
 
