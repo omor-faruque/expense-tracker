@@ -406,7 +406,7 @@ function exList(){
 
 function expenses(){
  const fc=fcat&&cat(fcat);
- return`<div class="card tv"><div class="search">${ic('search')}<input id="q" type="search" placeholder="Search notes, categories, amounts" value="${esc(q)}" aria-label="Search expenses"></div>
+ return`<div class="card glass-card tv">${glassFx}<div class="search">${ic('search')}<input id="q" type="search" placeholder="Search notes, categories, amounts" value="${esc(q)}" aria-label="Search expenses"></div>
  <div class="filter-chips" role="group" aria-label="Filter by spending type">${[['all','All'],...Object.entries(SPENDING_TYPES)].map(([value,label])=>`<button type="button" data-a="filter-spending" data-v="${value}" class="${spendingFilter===value?'on':''}" aria-pressed="${spendingFilter===value}">${label}</button>`).join('')}</div>
  ${fc?`<button class="fchip" data-a="cf" aria-label="Clear category filter">${catIc(fc)}${esc(fc.name)}${ic('x')}</button>`:''}
  <div id="xl">${exList()}</div></div>`;
